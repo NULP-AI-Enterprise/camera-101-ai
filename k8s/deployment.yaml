@@ -33,7 +33,8 @@ spec:
             - sh
             - -c
             - |
-              mkdir -p /data/raw_events /data/recordings /data/snapshots /data/logs
+              mkdir -p /data/raw_events /data/recordings /data/snapshots /data/logs \
+                         /data/.insightface /data/.ultralytics
               echo "Data dirs ready."
           securityContext:
             runAsUser: 1000

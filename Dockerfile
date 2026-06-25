@@ -40,22 +40,18 @@ ENV PATH="/venv/bin:$PATH" \
     HOME=/home/appuser \
     PYTHONUNBUFFERED=1 \
     STREAMLIT_SERVER_HEADLESS=true \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-
-# Pre-download ML models into the image so first startup is instant
-RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')" && \
-    python -c "\
-from insightface.app import FaceAnalysis; \
-fa = FaceAnalysis(name='buffalo_s', providers=['CPUExecutionProvider']); \
-fa.prepare(ctx_id=0, det_size=(320,320)); \
-print('Models OK')"
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    # Models download to the PVC on first run and persist across restarts.
+    # InsightFace (~100 MB buffalo_s) and YOLO (~6 MB yolov8n.pt) land in /data.
+    INSIGHTFACE_HOME=/data/.insightface \
+    YOLO_CONFIG_DIR=/data/.ultralytics
 
 EXPOSE 8501
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD wget -qO- http://localhost:8501/_stcore/health || exit 1
 
-# CWD=/data (PVC) — all relative paths (people.db, raw_events/ etc.) resolve there
+# CWD=/data (PVC) — relative paths (people.db, raw_events/, models) resolve there
 CMD ["sh", "-c", "cd /data && exec streamlit run /app/admin_app.py \
      --server.port=8501 --server.address=0.0.0.0 \
      --server.headless=true --server.fileWatcherType=none"]

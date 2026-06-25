@@ -1,0 +1,13 @@
+tracker_type: bytetrack
+
+track_high_thresh: 0.5    # min conf for primary association
+track_low_thresh:  0.1    # min conf for secondary association
+new_track_thresh:  0.6    # min conf to create a new track
+
+# 150 frames ≈ 5 seconds at 25-30 fps.
+# Prevents ID loss when a person is briefly occluded, turns away, or
+# walks behind an obstacle for a few seconds.
+track_buffer: 150
+
+match_thresh: 0.8
+fuse_score:   True

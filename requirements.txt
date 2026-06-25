@@ -1,0 +1,9 @@
+av
+opencv-python
+onnxruntime
+insightface
+sqlalchemy
+streamlit
+pillow
+pyobjc-framework-Vision
+pyobjc-framework-Quartz

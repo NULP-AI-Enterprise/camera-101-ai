@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Runtime / generated
+stream.pid
+analyser.pid
+stream_preview.jpg
+people.db
+
+# Media output — can be large
+raw_events/
+recordings/
+snapshots/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store

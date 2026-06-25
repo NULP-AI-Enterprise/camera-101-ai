@@ -13,9 +13,11 @@ Pages
 """
 import datetime
 import io
+import json
 import os
 import signal
 import subprocess
+import threading
 import time
 
 import av
@@ -249,6 +251,57 @@ def _restart_analyser() -> None:
     _start_analyser()
 
 
+# ── desired-state persistence + watchdog ──────────────────────────────────────
+# Desired state is written to module_state.json (on the PVC in k8s).
+# The watchdog thread checks every 15 s and restarts any module that
+# should be running but has crashed.
+
+_STATE_FILE      = "module_state.json"
+_WATCHDOG_SEC    = 15
+_watchdog_lock   = threading.Lock()
+_watchdog_active = False
+
+
+def _load_state() -> dict:
+    try:
+        with open(_STATE_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"recorder": False, "analyser": False}
+
+
+def _save_state(**kwargs) -> None:
+    state = _load_state()
+    state.update(kwargs)
+    tmp = _STATE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp, _STATE_FILE)
+
+
+def _watchdog_loop() -> None:
+    while True:
+        try:
+            s = _load_state()
+            if s.get("recorder") and not _stream_running():
+                _start_stream()
+            if s.get("analyser") and not _analyser_running():
+                _start_analyser()
+        except Exception:
+            pass
+        time.sleep(_WATCHDOG_SEC)
+
+
+def _ensure_watchdog() -> None:
+    global _watchdog_active
+    with _watchdog_lock:
+        if not _watchdog_active:
+            threading.Thread(
+                target=_watchdog_loop, daemon=True, name="watchdog"
+            ).start()
+            _watchdog_active = True
+
+
 # ── log viewer helper ─────────────────────────────────────────────────────────
 
 def _render_log(path: str, n: int = 200) -> None:
@@ -305,6 +358,8 @@ def _render_log(path: str, n: int = 200) -> None:
 
 # ── sidebar nav ───────────────────────────────────────────────────────────────
 
+_ensure_watchdog()
+
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Page",
@@ -330,16 +385,14 @@ if page == "📹 Live":
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("▶ Start", disabled=rec_running, key="rec_start", width="stretch"):
-            _start_stream()
+            _start_stream(); _save_state(recorder=True)
             st.success("Recorder starting…")
-            time.sleep(0.5)
-            st.rerun()
+            time.sleep(0.5); st.rerun()
     with c2:
         if st.button("⏹ Stop", disabled=not rec_running, key="rec_stop", width="stretch"):
-            _stop_stream()
+            _stop_stream(); _save_state(recorder=False)
             st.success("Recorder stopping…")
-            time.sleep(0.5)
-            st.rerun()
+            time.sleep(0.5); st.rerun()
     with c3:
         if st.button("🔄 Restart", key="rec_restart", width="stretch"):
             _restart_stream()
@@ -356,16 +409,14 @@ if page == "📹 Live":
     a1, a2, a3 = st.columns(3)
     with a1:
         if st.button("▶ Start", disabled=ana_running, key="ana_start", width="stretch"):
-            _start_analyser()
+            _start_analyser(); _save_state(analyser=True)
             st.success("Analyser starting…")
-            time.sleep(0.5)
-            st.rerun()
+            time.sleep(0.5); st.rerun()
     with a2:
         if st.button("⏹ Stop", disabled=not ana_running, key="ana_stop", width="stretch"):
-            _stop_analyser()
+            _stop_analyser(); _save_state(analyser=False)
             st.success("Analyser stopping…")
-            time.sleep(0.5)
-            st.rerun()
+            time.sleep(0.5); st.rerun()
     with a3:
         if st.button("🔄 Restart", key="ana_restart", width="stretch"):
             _restart_analyser()

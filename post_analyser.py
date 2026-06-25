@@ -38,7 +38,10 @@ import numpy as np
 
 from db import get_session, Recording, PersonEvent, UserFeature, bytes_to_emb
 from embeddings import FaceEmbedder
+from log_setup import get_logger
 from tracker import IOUTracker
+
+log = get_logger("analyser", "analyser.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RAW_EVENTS_DIR   = "raw_events"
@@ -96,6 +99,7 @@ def _vision_detect(img_bgr: np.ndarray,
     global _vision_request, _vision_cs
     with _vision_lock:
         if _vision_request is None:
+            log.debug("initialising Apple Vision detector…")
             import Quartz
             import Vision as VN
             _vision_cs      = Quartz.CGColorSpaceCreateDeviceRGB()
@@ -145,11 +149,11 @@ def _analyse_with_vision(video_path: str,
         min_age              = 2,
         max_centroid_dist    = 200.0,
         appearance_threshold = 0.60,
-        reid_window          = 45.0,   # 45 s dead-pool — handles long occlusions
+        reid_window          = 45.0,
     )
     tracks:    dict[int, _Track] = {}
     frame_idx: int               = 0
-    detect_every = 5   # run Vision every N frames (saves CPU during post-analysis)
+    detect_every = 5
 
     container = av.open(video_path)
     vid       = container.streams.video[0]
@@ -164,7 +168,7 @@ def _analyse_with_vision(video_path: str,
                                interpolation=cv2.INTER_LINEAR)
             dets = _vision_detect(small, orig_w, orig_h)
         else:
-            dets = []   # tracker coasts on existing tracks
+            dets = []
 
         active = tracker.update(dets, img)
 
@@ -188,7 +192,7 @@ def _analyse_with_vision(video_path: str,
                     if uid and sim >= lock_threshold:
                         tr.locked_uid = uid
                         tr.best_sim   = sim
-                        print(f"[analyser] LOCKED track {tid} → {uid}  sim={sim:.2f}")
+                        log.info("LOCKED track %d → %s  sim=%.2f", tid, uid, sim)
 
         frame_idx += 1
 
@@ -248,7 +252,7 @@ def _analyse_with_yolo(video_path: str,
                     if uid and sim >= lock_threshold:
                         tr.locked_uid = uid
                         tr.best_sim   = sim
-                        print(f"[analyser] LOCKED track {tid} → {uid}  sim={sim:.2f}")
+                        log.info("LOCKED track %d → %s  sim=%.2f", tid, uid, sim)
 
         frame_idx += 1
 
@@ -270,23 +274,22 @@ class PostAnalyser:
         self._db        = list(db_embeddings)
         self._db_lock   = threading.Lock()
 
-        # Detect backend once at init time
         self._use_yolo = False
         try:
             import torch          # noqa: F401
             import ultralytics    # noqa: F401
             self._use_yolo = True
-            print("[analyser] backend: YOLO v8n + ByteTrack")
+            log.info("backend: YOLO v8n + ByteTrack")
         except ImportError:
-            print("[analyser] backend: Apple Vision + IOUTracker")
+            log.info("backend: Apple Vision + IOUTracker")
 
     def reload_db(self) -> None:
-        """Refresh embeddings from DB (call after a new user is registered)."""
         with get_session() as db:
             rows = db.query(UserFeature).all()
             fresh = [(r.user_id, bytes_to_emb(r.embedding)) for r in rows]
         with self._db_lock:
             self._db = fresh
+        log.debug("DB reloaded — %d embedding(s)", len(fresh))
 
     # ── full-video analysis (Module B main path) ──────────────────────────────
 
@@ -296,6 +299,10 @@ class PostAnalyser:
         Returns True  — valid persons found (Recording saved to DB).
         Returns False — false positive (file deleted).
         """
+        basename = os.path.basename(video_path)
+        t0 = time.monotonic()
+        log.info("analysing %s …", basename)
+
         with self._db_lock:
             db_copy = list(self._db)
 
@@ -309,12 +316,15 @@ class PostAnalyser:
                     video_path, self._embedder, db_copy,
                     self._threshold, self._db_lock)
         except Exception as e:
-            print(f"[analyser] tracking error: {e}")
+            log.error("tracking error on %s: %s", basename, e)
             return False
+
+        elapsed = time.monotonic() - t0
+        log.debug("tracking done — %d track(s)  %d frames  %.1fs", len(tracks), frame_idx, elapsed)
 
         # ── no persons at all → false positive ───────────────────────────────
         if not tracks:
-            print(f"[analyser] no persons in {os.path.basename(video_path)} — deleting")
+            log.warning("no persons in %s — deleting", basename)
             _remove_file(video_path)
             return False
 
@@ -326,8 +336,8 @@ class PostAnalyser:
         for tr in tracks.values():
             if tr.locked_uid is None:
                 if tr.frame_count < MIN_TRACK_FRAMES and not tr.embeddings:
-                    print(f"[analyser] skip track {tr.track_id} "
-                          f"({tr.frame_count} frames, no face) — noise")
+                    log.debug("skip track %d (%d frames, no face) — noise",
+                              tr.track_id, tr.frame_count)
                     continue
                 if tr.embeddings:
                     avg = np.mean(tr.embeddings, axis=0).astype(np.float32)
@@ -339,8 +349,7 @@ class PostAnalyser:
             valid.append(tr)
 
         if not valid:
-            print(f"[analyser] all tracks filtered — deleting "
-                  f"{os.path.basename(video_path)}")
+            log.warning("all tracks filtered (noise) — deleting %s", basename)
             _remove_file(video_path)
             return False
 
@@ -348,10 +357,9 @@ class PostAnalyser:
         start = _parse_start_time(video_path)
         end   = start + datetime.timedelta(seconds=frame_idx / fps)
 
-        # Render annotated video (overwrites raw file in place)
         _annotate_video(video_path, valid, fps)
-
         self._write_db(video_path, valid, start, end, fps)
+        log.info("done  %s  %.1fs total", basename, time.monotonic() - t0)
         return True
 
     # ── sync per-event re-analysis (admin "Re-analyze" button) ───────────────
@@ -371,6 +379,7 @@ class PostAnalyser:
         t_in  = max(0.0, (first_seen  - scene_start).total_seconds())
         t_out = max(t_in + 0.5, (last_seen - scene_start).total_seconds())
 
+        log.debug("re-analyse event %d  t=%.1f–%.1f", event_id, t_in, t_out)
         embeddings = _sample_faces(video_path, t_in, t_out, self._embedder, n=15)
         if not embeddings:
             embeddings = _sample_faces(video_path, t_in, t_out, self._embedder, n=40)
@@ -382,7 +391,13 @@ class PostAnalyser:
         if embeddings:
             avg = np.mean(embeddings, axis=0).astype(np.float32)
             avg /= np.linalg.norm(avg) + 1e-8
-            uid, _ = FaceEmbedder.best_match(avg, db_copy, threshold=0.48)
+            uid, sim = FaceEmbedder.best_match(avg, db_copy, threshold=0.48)
+            if uid:
+                log.info("re-analyse event %d → %s (sim=%.2f)", event_id, uid, sim)
+            else:
+                log.info("re-analyse event %d → unknown", event_id)
+        else:
+            log.warning("re-analyse event %d — no face embeddings found", event_id)
 
         try:
             with get_session() as db:
@@ -390,7 +405,7 @@ class PostAnalyser:
                 if ev:
                     ev.user_id = uid
         except Exception as e:
-            print(f"[analyser] DB write error: {e}")
+            log.error("DB write error (event %d): %s", event_id, e)
 
         return uid
 
@@ -420,10 +435,11 @@ class PostAnalyser:
                         last_seen     = last_seen,
                         snapshot_path = snap_path,
                     ))
-            print(f"[analyser] recording #{rec_id}: {len(tracks)} person(s)"
-                  f" — {os.path.basename(video_path)}")
+            names = [tr.locked_uid or "unknown" for tr in tracks]
+            log.info("recording #%d saved — %d person(s): %s — %s",
+                     rec_id, len(tracks), ", ".join(names), os.path.basename(video_path))
         except Exception as e:
-            print(f"[analyser] DB error: {e}")
+            log.error("DB error: %s", e)
 
 
 # ── video annotation ──────────────────────────────────────────────────────────
@@ -432,11 +448,7 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
     """
     Second pass: decode raw video, draw person rectangles + name labels,
     overwrite the file in place.
-
-    Bboxes are carried forward from the nearest detection frame so every
-    frame in [first_frame, last_frame] has a visible annotation.
     """
-    # Load user_id → display name mapping
     uid_to_name: dict[str, str] = {}
     try:
         from db import User as _User
@@ -447,6 +459,7 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
         pass
 
     tmp_path = video_path + ".ann_tmp.mp4"
+    basename = os.path.basename(video_path)
     try:
         in_c   = av.open(video_path)
         in_vid = in_c.streams.video[0]
@@ -458,18 +471,14 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
         out_stream.width, out_stream.height, out_stream.pix_fmt = w, h, "yuv420p"
         out_stream.options = {"crf": "22", "preset": "fast"}
 
-        # last known bbox per track_id (carry-forward)
         last_bbox: dict[int, list[int]] = {}
 
         for fidx, av_frame in enumerate(in_c.decode(in_vid)):
             img = av_frame.to_ndarray(format="bgr24")
 
             for tr in tracks:
-                # Update carry-forward bbox
                 if fidx in tr.frame_bboxes:
                     last_bbox[tr.track_id] = tr.frame_bboxes[fidx]
-
-                # Draw only while the track is considered active
                 if not (tr.first_frame <= fidx <= tr.last_frame):
                     continue
                 bbox = last_bbox.get(tr.track_id)
@@ -478,7 +487,6 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
 
                 x1, y1, x2, y2 = bbox
                 color = _TRACK_COLORS[tr.track_id % len(_TRACK_COLORS)]
-
                 cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
                 if tr.locked_uid:
@@ -505,13 +513,15 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
 
         out_c.close()
         in_c.close()
-
         os.replace(tmp_path, video_path)
-        print(f"[analyser] annotated {os.path.basename(video_path)}")
+        log.info("annotated %s", basename)
 
     except Exception as e:
-        print(f"[analyser] annotation error: {e}")
-        in_c.close() if 'in_c' in dir() else None
+        log.error("annotation error on %s: %s", basename, e)
+        try:
+            in_c.close()
+        except Exception:
+            pass
         try:
             os.remove(tmp_path)
         except OSError:
@@ -597,7 +607,7 @@ def _sample_faces(video_path: str, t_in: float, t_out: float,
                 next_t = t + step
         container.close()
     except Exception as e:
-        print(f"[analyser] _sample_faces error: {e}")
+        log.error("_sample_faces: %s", e)
     return embeddings
 
 
@@ -632,7 +642,7 @@ def _extract_snapshot(video_path: str, tr: _Track, rec_id: int) -> Optional[str]
                 break
         container.close()
     except Exception as e:
-        print(f"[analyser] snapshot error: {e}")
+        log.error("snapshot error: %s", e)
     return None
 
 
@@ -651,7 +661,7 @@ class AnalyserDaemon:
 
     def run_forever(self) -> None:
         os.makedirs(RAW_EVENTS_DIR, exist_ok=True)
-        print(f"[analyser-daemon] watching {RAW_EVENTS_DIR}/")
+        log.info("watching %s/  (poll interval %.1fs)", RAW_EVENTS_DIR, POLL_INTERVAL)
         while not self._stop_event.is_set():
             self._scan()
             self._stop_event.wait(POLL_INTERVAL)
@@ -678,15 +688,15 @@ class AnalyserDaemon:
                     pass
                 continue
             try:
-                os.remove(marker)   # remove marker before processing — prevents double-pick
+                os.remove(marker)
             except OSError:
                 continue
             self._processing.add(video)
-            print(f"[analyser-daemon] ▶ {os.path.basename(video)}")
+            log.info("▶ %s", os.path.basename(video))
             try:
                 self._analyser.analyse(video)
             except Exception as e:
-                print(f"[analyser-daemon] error: {e}")
+                log.error("error processing %s: %s", os.path.basename(video), e)
             finally:
                 self._processing.discard(video)
 
@@ -700,37 +710,38 @@ def main():
     _shutdown = threading.Event()
 
     def _sig(sig, frame):          # noqa: ARG001
-        print(f"\n[analyser] signal {sig} — stopping…")
+        log.info("signal %d — stopping…", sig)
         _shutdown.set()
 
     signal.signal(signal.SIGTERM, _sig)
     signal.signal(signal.SIGINT,  _sig)
 
-    print("[analyser] Loading face embedder…")
+    log.info("startup  pid=%d", os.getpid())
+    log.info("loading face embedder…")
     try:
         embedder = FaceEmbedder()
     except Exception as e:
-        print(f"[analyser] FaceEmbedder failed: {e}")
+        log.critical("FaceEmbedder failed: %s — exiting", e)
         sys.exit(1)
 
     with get_session() as db:
         rows = db.query(UserFeature).all()
         db_embeddings = [(r.user_id, bytes_to_emb(r.embedding)) for r in rows]
-    print(f"[analyser] {len(db_embeddings)} embedding(s) loaded.")
+    log.info("%d embedding(s) loaded", len(db_embeddings))
 
     daemon = AnalyserDaemon(PostAnalyser(embedder, db_embeddings))
     t = threading.Thread(target=daemon.run_forever, daemon=True)
     t.start()
 
     _shutdown.wait()
-    print("[analyser] Stopping…")
+    log.info("stopping…")
     daemon.stop()
     t.join(timeout=5)
     try:
         os.remove(PID_FILE)
     except OSError:
         pass
-    print("[analyser] Done.")
+    log.info("exit")
 
 
 if __name__ == "__main__":

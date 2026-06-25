@@ -31,6 +31,34 @@ from post_analyser import PostAnalyser
 
 st.set_page_config(page_title="People Recognition — Admin", layout="wide")
 
+# ── auth gate ─────────────────────────────────────────────────────────────────
+# Credentials are injected from the Kubernetes SealedSecret as env vars.
+# When AUTH_USERNAME / AUTH_PASSWORD are unset the gate is skipped (dev mode).
+_AUTH_USER = os.environ.get("AUTH_USERNAME", "")
+_AUTH_PASS = os.environ.get("AUTH_PASSWORD", "")
+
+if _AUTH_USER and _AUTH_PASS and not st.session_state.get("_auth_ok"):
+    # Hide sidebar so the login page looks clean
+    st.markdown(
+        "<style>section[data-testid='stSidebar']{display:none}</style>",
+        unsafe_allow_html=True,
+    )
+    _, col, _ = st.columns([1, 1.4, 1])
+    with col:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.title("🔒 Sign In")
+        st.caption("People Recognition — Admin Panel")
+        with st.form("_auth_form"):
+            _u = st.text_input("Username")
+            _p = st.text_input("Password", type="password")
+            if st.form_submit_button("Sign in", type="primary", use_container_width=True):
+                if _u == _AUTH_USER and _p == _AUTH_PASS:
+                    st.session_state["_auth_ok"] = True
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password")
+    st.stop()
+
 PID_FILE          = "stream.pid"
 ANALYSER_PID_FILE = "analyser.pid"
 PREVIEW_PATH      = "stream_preview.jpg"
@@ -221,11 +249,68 @@ def _restart_analyser() -> None:
     _start_analyser()
 
 
+# ── log viewer helper ─────────────────────────────────────────────────────────
+
+def _render_log(path: str, n: int = 200) -> None:
+    """Render the last n lines of a log file with colour-coded severity."""
+    if not os.path.exists(path):
+        st.info("No log yet — start the module to generate one.")
+        return
+
+    with open(path, "r", encoding="utf-8", errors="replace") as _f:
+        lines = _f.readlines()[-n:]
+
+    errors   = sum(1 for l in lines if "[ERROR]" in l or "[CRITI]" in l)
+    warnings = sum(1 for l in lines if "[WARN ]" in l)
+    if errors:
+        st.error(f"{errors} error(s) in last {n} lines")
+    elif warnings:
+        st.warning(f"{warnings} warning(s) in last {n} lines")
+
+    html_lines = []
+    for line in lines:
+        line = line.rstrip()
+        if "[ERROR]" in line or "[CRITI]" in line:
+            color = "#ff4b4b"
+        elif "[WARN ]" in line:
+            color = "#ffa040"
+        elif "[DEBUG]" in line:
+            color = "#666666"
+        else:
+            color = "#d0d0d0"
+        escaped = (line.replace("&", "&amp;")
+                       .replace("<", "&lt;")
+                       .replace(">", "&gt;"))
+        html_lines.append(
+            f'<span style="color:{color}">{escaped}</span>'
+        )
+
+    joined = "\n".join(html_lines) or "<i style='color:#555'>— empty —</i>"
+    st.markdown(
+        f'<div style="background:#1a1a1a;padding:12px 14px;border-radius:6px;'
+        f'font-family:monospace;font-size:0.78em;overflow-y:auto;'
+        f'max-height:480px;white-space:pre">{joined}</div>',
+        unsafe_allow_html=True,
+    )
+
+    size_kb = os.path.getsize(path) / 1024
+    col_cap, col_clr = st.columns([4, 1])
+    with col_cap:
+        st.caption(f"`{os.path.basename(path)}` — {len(lines)} lines shown · {size_kb:.1f} KB")
+    with col_clr:
+        if st.button("🗑 Clear", key=f"clr_{path}", use_container_width=True):
+            open(path, "w").close()
+            st.rerun()
+
+
 # ── sidebar nav ───────────────────────────────────────────────────────────────
 
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Page", ["📹 Live", "👤 Users", "➕ Add User", "📋 Sessions"],
-                        label_visibility="collapsed")
+page = st.sidebar.radio(
+    "Page",
+    ["📹 Live", "👤 Users", "➕ Add User", "📋 Sessions", "📜 Logs"],
+    label_visibility="collapsed",
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: Live
@@ -295,8 +380,14 @@ if page == "📹 Live":
         mtime = os.path.getmtime(PREVIEW_PATH)
         age   = time.time() - mtime
         if age < 10:
-            st.image(PREVIEW_PATH, width="stretch")
-            st.caption(f"Last frame: {age:.1f}s ago")
+            try:
+                # Read bytes once — avoids race where file is replaced mid-read
+                with open(PREVIEW_PATH, "rb") as _f:
+                    img_bytes = _f.read()
+                st.image(img_bytes, width="stretch")
+                st.caption(f"Last frame: {age:.1f}s ago")
+            except Exception:
+                st.info("Frame loading…")
         else:
             st.warning(f"Preview is stale ({age:.0f}s old) — stream may have stopped.")
     else:
@@ -687,3 +778,25 @@ elif page == "📋 Sessions":
                     st.caption(f"`{os.path.basename(vpath)}`")
                 else:
                     st.caption("Video file not found.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: Logs
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "📜 Logs":
+    from streamlit_autorefresh import st_autorefresh   # type: ignore
+    st_autorefresh(interval=3000, limit=None, key="logs_refresh")
+
+    st.title("System Logs")
+    st.caption("Auto-refreshes every 3 s.  DEBUG lines are written to file only — "
+               "use the module terminal for real-time output.")
+
+    tab_a, tab_b = st.tabs(["Module A — Recorder", "Module B — Analyser"])
+
+    with tab_a:
+        st.subheader("stream.log")
+        _render_log("logs/stream.log")
+
+    with tab_b:
+        st.subheader("analyser.log")
+        _render_log("logs/analyser.log")

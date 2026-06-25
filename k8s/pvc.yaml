@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: people-recognition-data
+  namespace: people-recognition
+  labels:
+    app: people-recognition
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path   # default k3s provisioner
+  resources:
+    requests:
+      storage: 20Gi              # raw videos + recordings + snapshots + DB

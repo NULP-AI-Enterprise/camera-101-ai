@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: people-recognition
+  namespace: people-recognition
+  labels:
+    app: people-recognition
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: people-recognition
+  strategy:
+    type: Recreate   # Recreate (not RollingUpdate) — single-replica app with RWO PVC
+  template:
+    metadata:
+      labels:
+        app: people-recognition
+      annotations:
+        checksum/secret: "update-this-on-secret-change"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000            # PVC files owned by appuser
+
+      initContainers:
+        # Ensure required data directories exist on the PVC before the app starts
+        - name: init-data-dirs
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/raw_events /data/recordings /data/snapshots /data/logs
+              echo "Data dirs ready."
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+      containers:
+        # ── Module A + B + Admin UI ─────────────────────────────────────────
+        - name: people-recognition
+          # CI workflow pins this tag on every push to main
+          image: ghcr.io/nulp-ai-enterprise/people-recognition:sha-0000000
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8501
+              protocol: TCP
+          env:
+            - name: AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: people-recognition-secret
+                  key: AUTH_USERNAME
+            - name: AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: people-recognition-secret
+                  key: AUTH_PASSWORD
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "3000m"
+              memory: "4Gi"     # InsightFace + YOLO need headroom
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+
+      imagePullSecrets:
+        - name: ghcr-pull-secret   # kubectl create secret docker-registry ghcr-pull-secret ...
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: people-recognition-data
+        - name: tmp
+          emptyDir: {}
+
+      restartPolicy: Always

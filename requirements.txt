@@ -1,9 +1,25 @@
-av
-opencv-python
-onnxruntime
-insightface
-sqlalchemy
-streamlit
-pillow
-pyobjc-framework-Vision
-pyobjc-framework-Quartz
+# ── Video / image ─────────────────────────────────────────────────────────────
+av>=12.0
+opencv-python-headless>=4.9   # headless — no GUI deps needed in container
+numpy>=1.24
+Pillow>=10.0
+
+# ── Face recognition ──────────────────────────────────────────────────────────
+insightface>=0.7.3
+onnxruntime>=1.17             # CPU-only inference (no CUDA required)
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy>=2.0
+
+# ── Web UI ────────────────────────────────────────────────────────────────────
+streamlit>=1.35
+streamlit-autorefresh>=1.0
+
+# ── Person detection — Linux path (replaces Apple Vision on macOS) ────────────
+torch>=2.3
+torchvision>=0.18
+ultralytics>=8.2
+
+# ── macOS dev only (comment out for Docker build) ─────────────────────────────
+# pyobjc-framework-Vision
+# pyobjc-framework-Quartz

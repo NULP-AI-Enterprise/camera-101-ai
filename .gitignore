@@ -6,11 +6,15 @@ __pycache__/
 venv/
 *.egg-info/
 
+# k8s plaintext secrets — seal with kubeseal before committing
+k8s/secret.yaml
+
 # Runtime / generated
 stream.pid
 analyser.pid
 stream_preview.jpg
 people.db
+logs/
 
 # Media output — can be large
 raw_events/

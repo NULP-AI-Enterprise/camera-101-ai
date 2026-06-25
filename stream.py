@@ -15,13 +15,16 @@ import datetime
 import os
 import queue
 import signal
-import sys
 import threading
 import time
 
 import av
 import cv2
 import numpy as np
+
+from log_setup import get_logger
+
+log = get_logger("recorder", "stream.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RTSP_URL         = "rtsp://admin:admin123@192.168.1.169:554/cam/realmonitor?channel=1&subtype=0"
@@ -33,14 +36,16 @@ MIN_RECORD_SECS  = 1.0          # discard clips shorter than this
 PREVIEW_EVERY    = 5            # write preview JPEG every N frames
 RAW_EVENTS_DIR   = "raw_events"
 PREVIEW_PATH     = "stream_preview.jpg"
+PREVIEW_TMP      = "stream_preview.tmp.jpg"   # must end in .jpg for OpenCV codec detection
 PID_FILE         = "stream.pid"
 ENCODE_QUEUE_MAX = 150
+LOG_FPS_EVERY    = 300          # log live FPS every N frames
 
 # ── shutdown event — set by SIGTERM / SIGINT ──────────────────────────────────
 _shutdown = threading.Event()
 
 def _handle_stop(sig, frame):          # noqa: ARG001
-    print(f"\n[recorder] signal {sig} — shutting down…")
+    log.info("signal %d — shutting down", sig)
     _shutdown.set()
 
 signal.signal(signal.SIGTERM, _handle_stop)
@@ -89,7 +94,7 @@ class AsyncVideoWriter:
                 out.mux(pkt)
             out.close()
         except Exception as e:
-            print(f"[encoder] error: {e}")
+            log.error("encoder: %s", e)
         finally:
             self._done.set()
 
@@ -126,7 +131,7 @@ class _FrameDecoder:
                 self._q.put(img)
         except Exception as e:
             if not _shutdown.is_set():
-                print(f"[decoder] stopped: {e}")
+                log.warning("decoder stopped: %s", e)
         finally:
             self._q.put(None)
 
@@ -147,7 +152,7 @@ class MotionRecorder:
         self._writer:    AsyncVideoWriter | None  = None
         self._rec_start: datetime.datetime | None = None
         self._rec_path:  str | None               = None
-        self._last_motion: float = 0.0   # monotonic clock of last motion event
+        self._last_motion: float = 0.0
         self._recording:   bool  = False
         os.makedirs(RAW_EVENTS_DIR, exist_ok=True)
 
@@ -179,7 +184,7 @@ class MotionRecorder:
         if self._recording and self._writer:
             self._recording = False
             self._writer.close(timeout=10.0)
-            print(f"[recorder] flushed partial clip → {self._rec_path}")
+            log.info("flushed partial clip → %s", self._rec_path)
         self._writer   = None
         self._rec_path = None
 
@@ -193,7 +198,7 @@ class MotionRecorder:
         self._rec_path  = path
         self._rec_start = now
         self._recording = True
-        print(f"[recorder] MOTION — start {os.path.basename(path)}")
+        log.info("MOTION START → %s  (%dx%d)", os.path.basename(path), w, h)
 
     def _stop(self, now: datetime.datetime) -> None:
         self._recording = False
@@ -202,7 +207,8 @@ class MotionRecorder:
         dur = (now - self._rec_start).total_seconds() if self._rec_start else 0
         self._writer.close()
         if self._writer.dropped:
-            print(f"[recorder] {self._writer.dropped} frames dropped")
+            log.warning("%d frames dropped — %s",
+                        self._writer.dropped, os.path.basename(self._rec_path or ""))
         self._writer = None
         path = self._rec_path
         self._rec_path  = None
@@ -213,31 +219,58 @@ class MotionRecorder:
                 os.remove(path)
             except OSError:
                 pass
-            print(f"[recorder] clip discarded ({dur:.1f}s < {MIN_RECORD_SECS}s)")
+            log.debug("clip discarded (%.1fs < %.1fs) — %s",
+                      dur, MIN_RECORD_SECS, os.path.basename(path))
             return
 
         # Signal Module B
         open(path + ".ready", "w").close()
-        print(f"[recorder] SAVED {os.path.basename(path)} ({dur:.1f}s) → queued for analysis")
+        log.info("SAVED %s (%.1fs) → queued for analysis", os.path.basename(path), dur)
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
+CONNECT_RETRY_SECS = 5
+
+
 def main():
+    log.info("startup  pid=%d", os.getpid())
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
 
-    opts = {"rtsp_transport": "tcp", "stimeout": "8000000", "max_delay": "500000"}
-    print("[recorder] Connecting to camera…")
     try:
-        container = av.open(RTSP_URL, options=opts)
-    except Exception as e:
-        print(f"[recorder] Cannot connect: {e}")
-        sys.exit(1)
+        _run()
+    finally:
+        for p in (PID_FILE, PREVIEW_PATH, PREVIEW_TMP):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        log.info("exit")
+
+
+def _run() -> None:
+    opts = {"rtsp_transport": "tcp", "stimeout": "8000000", "max_delay": "500000"}
+
+    # ── connect with retry ────────────────────────────────────────────────────
+    container = None
+    while not _shutdown.is_set():
+        try:
+            log.info("connecting to %s …", RTSP_URL)
+            container = av.open(RTSP_URL, options=opts)
+            break
+        except Exception as e:
+            log.error("cannot connect (%s) — retry in %ds", e, CONNECT_RETRY_SECS)
+            _shutdown.wait(CONNECT_RETRY_SECS)
+
+    if container is None or _shutdown.is_set():
+        return
 
     vid = container.streams.video[0]
     vid.thread_type = "AUTO"
-    print("[recorder] Connected. Watching for motion…")
+    w = vid.codec_context.width or 0
+    h = vid.codec_context.height or 0
+    log.info("connected  %dx%d @ %.0ffps", w, h, STREAM_FPS)
 
     decoder  = _FrameDecoder(container, vid)
     recorder = MotionRecorder(fps=STREAM_FPS)
@@ -249,7 +282,25 @@ def main():
         while not _shutdown.is_set():
             img = decoder.get()
             if img is None:
-                break
+                if _shutdown.is_set():
+                    break
+                log.warning("stream lost — reconnecting…")
+                try:
+                    container.close()
+                except Exception:
+                    pass
+                _shutdown.wait(CONNECT_RETRY_SECS)
+                if _shutdown.is_set():
+                    break
+                try:
+                    container = av.open(RTSP_URL, options=opts)
+                    vid       = container.streams.video[0]
+                    vid.thread_type = "AUTO"
+                    decoder   = _FrameDecoder(container, vid)
+                    log.info("reconnected")
+                except Exception as e:
+                    log.error("reconnect failed: %s", e)
+                continue
 
             orig_h, orig_w = img.shape[:2]
             frame_idx += 1
@@ -265,28 +316,30 @@ def main():
                 fps_disp  = fps_count / (t - fps_t0)
                 fps_count, fps_t0 = 0, t
 
+            if frame_idx % LOG_FPS_EVERY == 0:
+                log.debug("live  %.1f fps  frame=%d  recording=%s",
+                          fps_disp, frame_idx, is_rec)
+
             if frame_idx % PREVIEW_EVERY == 0:
                 label = "REC" if is_rec else "LIVE"
                 color = (0, 0, 220) if is_rec else (180, 180, 0)
                 disp  = img.copy()
                 cv2.putText(disp, f"{label}  {fps_disp:.0f} fps",
                             (10, 36), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2, cv2.LINE_AA)
-                cv2.imwrite(PREVIEW_PATH, disp)
+                if cv2.imwrite(PREVIEW_TMP, disp):
+                    os.replace(PREVIEW_TMP, PREVIEW_PATH)
 
     except Exception as e:
         if not _shutdown.is_set():
-            print(f"[recorder] error: {e}")
+            log.error("stream error: %s", e)
     finally:
-        print("[recorder] Shutting down…")
+        log.info("shutting down…")
         _shutdown.set()
         recorder.flush()
-        container.close()
-        for p in (PID_FILE, PREVIEW_PATH):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
-        print("[recorder] Done.")
+        try:
+            container.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

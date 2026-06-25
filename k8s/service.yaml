@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: people-recognition
+  namespace: people-recognition
+  labels:
+    app: people-recognition
+spec:
+  type: ClusterIP
+  selector:
+    app: people-recognition
+  ports:
+    - name: http
+      port: 8501
+      targetPort: http
+      protocol: TCP

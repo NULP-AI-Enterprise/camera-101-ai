@@ -2,6 +2,8 @@
 People detection on RTSP stream.
 Apple Vision framework (no model download) — runs on Neural Engine / GPU on Apple Silicon.
 """
+import os
+
 import av
 import cv2
 import numpy as np
@@ -10,7 +12,7 @@ import Vision
 
 # ── tuneable parameters ───────────────────────────────────────────────────────
 
-RTSP_URL = "rtsp://admin:admin123@192.168.1.169:554/cam/realmonitor?channel=1&subtype=0"
+RTSP_URL = os.environ["RTSP_URL"]   # set in .env or export RTSP_URL=rtsp://...
 
 DETECT_EVERY_N_FRAMES = 10    # run Vision on every Nth frame (1 = every frame, higher = faster display)
 CONF_THRESH           = 0.5  # minimum confidence to show a detection (0.0–1.0)

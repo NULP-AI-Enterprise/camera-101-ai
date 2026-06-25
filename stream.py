@@ -27,7 +27,7 @@ from log_setup import get_logger
 log = get_logger("recorder", "stream.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
-RTSP_URL         = "rtsp://admin:admin123@192.168.1.169:554/cam/realmonitor?channel=1&subtype=0"
+RTSP_URL         = os.environ["RTSP_URL"]   # required — set in k8s secret or .env
 STREAM_FPS       = 25.0
 DETECT_WIDTH     = 480          # width for MOG2 processing (saves CPU)
 MIN_MOTION_PX    = 2000         # changed-pixel threshold (~human-sized motion)

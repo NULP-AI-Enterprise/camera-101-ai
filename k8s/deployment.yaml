@@ -63,6 +63,11 @@ spec:
                 secretKeyRef:
                   name: people-recognition-secret
                   key: AUTH_PASSWORD
+            - name: RTSP_URL
+              valueFrom:
+                secretKeyRef:
+                  name: people-recognition-secret
+                  key: RTSP_URL
           resources:
             requests:
               cpu: "500m"

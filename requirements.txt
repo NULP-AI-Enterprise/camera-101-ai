@@ -1,12 +1,19 @@
+# torch + torchvision are installed in Dockerfile via CPU-only index URL:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# Do NOT add them here — pip would reinstall the CUDA build (~2 GB).
+
 # ── Video / image ─────────────────────────────────────────────────────────────
 av>=12.0
-opencv-python-headless>=4.9   # headless — no GUI deps needed in container
+opencv-python-headless>=4.9
 numpy>=1.24
 Pillow>=10.0
 
 # ── Face recognition ──────────────────────────────────────────────────────────
 insightface>=0.7.3
-onnxruntime>=1.17             # CPU-only inference (no CUDA required)
+onnxruntime>=1.17
+
+# ── Person detection (YOLO — depends on torch installed above) ─────────────────
+ultralytics>=8.2
 
 # ── Database ──────────────────────────────────────────────────────────────────
 sqlalchemy>=2.0
@@ -14,12 +21,3 @@ sqlalchemy>=2.0
 # ── Web UI ────────────────────────────────────────────────────────────────────
 streamlit>=1.35
 streamlit-autorefresh>=1.0
-
-# ── Person detection — Linux path (replaces Apple Vision on macOS) ────────────
-torch>=2.3
-torchvision>=0.18
-ultralytics>=8.2
-
-# ── macOS dev only (comment out for Docker build) ─────────────────────────────
-# pyobjc-framework-Vision
-# pyobjc-framework-Quartz

@@ -1,9 +1,13 @@
 """
 Face embedding extraction using InsightFace (ArcFace / ONNX, Python 3.13 compatible).
-Downloads ~100 MB of ONNX models on first run to ~/.insightface/models/.
+Downloads ~100 MB of ONNX models on first run to INSIGHTFACE_HOME (default ~/.insightface).
 """
 from __future__ import annotations
+import fcntl
+import os
 import numpy as np
+
+_MODEL_ROOT = os.environ.get("INSIGHTFACE_HOME", os.path.expanduser("~/.insightface"))
 
 
 class FaceEmbedder:
@@ -17,12 +21,18 @@ class FaceEmbedder:
 
     def __init__(self):
         from insightface.app import FaceAnalysis
-        # CoreML EP has a shape-rank mismatch with InsightFace's SCRFD detector — CPU only
-        self._app = FaceAnalysis(
-            name=self.MODEL_NAME,
-            providers=["CPUExecutionProvider"],
-        )
-        self._app.prepare(ctx_id=0, det_size=(320, 320))
+        os.makedirs(_MODEL_ROOT, exist_ok=True)
+        # File lock prevents concurrent processes from corrupting the model download
+        lock_path = os.path.join(_MODEL_ROOT, ".download.lock")
+        with open(lock_path, "w") as _lf:
+            fcntl.flock(_lf, fcntl.LOCK_EX)
+            # CoreML EP has a shape-rank mismatch with InsightFace's SCRFD detector — CPU only
+            self._app = FaceAnalysis(
+                name=self.MODEL_NAME,
+                root=_MODEL_ROOT,
+                providers=["CPUExecutionProvider"],
+            )
+            self._app.prepare(ctx_id=0, det_size=(320, 320))
 
     # ------------------------------------------------------------------
 

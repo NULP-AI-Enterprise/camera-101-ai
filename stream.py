@@ -43,7 +43,9 @@ def _masked_url(url: str) -> str:
     return url
 STREAM_FPS        = 25.0
 DETECT_WIDTH      = 480          # width for MOG2 processing (saves CPU)
-MIN_MOTION_FRAC   = 0.009        # changed-pixel threshold as fraction of frame area (~human-sized motion at 480p)
+MIN_MOTION_FRAC        = 0.009   # changed-pixel threshold as fraction of frame area (~human-sized motion at 480p)
+MOTION_CONFIRM_FRAMES  = 3      # consecutive motion frames required before recording starts
+                                 # eliminates single-frame light-flash / sun-glare triggers
 COOLDOWN_SECS     = 5.0          # silence before closing a recording
 MIN_RECORD_SECS  = 1.0          # discard clips shorter than this
 PREVIEW_EVERY    = 5            # write preview JPEG every N frames
@@ -112,14 +114,17 @@ class MotionRecorder:
     def __init__(self, fps: float):
         self._fps      = fps
         self._mog2     = cv2.createBackgroundSubtractorMOG2(
-            history=500, varThreshold=25, detectShadows=False
+            history=500, varThreshold=40, detectShadows=False
         )
-        self._morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        # 7×7 kernel: larger than 5×5 — removes more speckle noise from
+        # illumination changes while keeping human-sized motion blobs intact.
+        self._morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         self._writer:    AsyncVideoWriter | None  = None
         self._rec_start: datetime.datetime | None = None
         self._rec_path:  str | None               = None
-        self._last_motion: float = 0.0
-        self._recording:   bool  = False
+        self._last_motion:   float = 0.0
+        self._motion_streak: int   = 0   # consecutive frames with motion >= threshold
+        self._recording:     bool  = False
         os.makedirs(RAW_EVENTS_DIR, exist_ok=True)
 
     def process(self, frame: np.ndarray, small: np.ndarray) -> bool:
@@ -128,6 +133,9 @@ class MotionRecorder:
         Returns True while recording.
         """
         mask      = self._mog2.apply(small)
+        # OPEN removes isolated bright speckles (glare, reflections).
+        # CLOSE then fills gaps inside real motion blobs.
+        mask      = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  self._morph_kernel)
         mask      = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self._morph_kernel)
         motion_px = cv2.countNonZero(mask)
         threshold = int(small.shape[0] * small.shape[1] * MIN_MOTION_FRAC)
@@ -135,9 +143,12 @@ class MotionRecorder:
         now_wall  = datetime.datetime.now()
 
         if motion_px >= threshold:
+            self._motion_streak += 1
             self._last_motion = now_mono
-            if not self._recording:
+            if not self._recording and self._motion_streak >= MOTION_CONFIRM_FRAMES:
                 self._start(frame, now_wall)
+        else:
+            self._motion_streak = 0
 
         if self._recording:
             if now_mono - self._last_motion > COOLDOWN_SECS:

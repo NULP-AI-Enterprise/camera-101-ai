@@ -275,12 +275,16 @@ input:focus{outline:none;border-color:var(--accent)}
           6 guided head positions — like Apple Face ID
         </div>
         <div class="form-group">
-          <label class="form-label">User ID (unique)</label>
-          <input type="text" id="fid-uid" placeholder="emp_001">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="fid-name" placeholder="John Doe" oninput="fidAutoId()">
         </div>
         <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" id="fid-name" placeholder="John Doe">
+          <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+            <span>User ID</span>
+            <button type="button" onclick="fidAutoId(true)"
+                    style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.78rem;padding:0">↻ regenerate</button>
+          </label>
+          <input type="text" id="fid-uid" placeholder="auto-generated from name" style="color:var(--muted)">
         </div>
         <div id="fid-form-err" class="alert alert-error" style="display:none"></div>
         <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fidStart()">
@@ -602,18 +606,40 @@ let _fidStream = null;
 let _fidUid = '';
 let _fidName = '';
 
+function fidAutoId(force) {
+  const nameEl = document.getElementById('fid-name');
+  const uidEl  = document.getElementById('fid-uid');
+  const name   = nameEl.value.trim();
+  // Only auto-fill when empty or force=true (regenerate button)
+  if (!force && uidEl.value.trim()) return;
+  if (!name) { uidEl.value = ''; return; }
+  const slug = name.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')  // strip diacritics (Ї→I etc.)
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0, 18) || 'user';
+  const suffix = Math.random().toString(36).slice(2, 6);
+  uidEl.value = `${slug}_${suffix}`;
+  uidEl.style.color = '';
+}
+
 async function fidStart() {
   const uid  = document.getElementById('fid-uid').value.trim();
   const name = document.getElementById('fid-name').value.trim();
   const err  = document.getElementById('fid-form-err');
-  if (!uid || !name) { showAlert(err, 'Both fields are required'); return; }
+  if (!name) { showAlert(err, 'Full name is required'); return; }
+  // Auto-generate UID if still empty
+  if (!uid) fidAutoId(true);
+  const finalUid = document.getElementById('fid-uid').value.trim();
+  if (!finalUid) { showAlert(err, 'Could not generate ID — enter manually'); return; }
 
   try {
-    const r = await fetch('/api/users', {method:'POST', body: (() => {const f=new FormData();f.append('user_id',uid);f.append('name',name);return f;})()});
+    const fd = new FormData();
+    fd.append('user_id', finalUid);
+    fd.append('name', name);
+    const r = await fetch('/api/users', {method:'POST', body: fd});
     if (!r.ok) { const j = await r.json(); showAlert(err, j.detail || 'Error'); return; }
   } catch(e) { showAlert(err, 'Network error'); return; }
 
-  _fidUid  = uid;
+  _fidUid  = finalUid;
   _fidName = name;
   _fidStep = 0;
   _fidBlobs = [];

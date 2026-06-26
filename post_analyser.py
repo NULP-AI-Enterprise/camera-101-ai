@@ -188,6 +188,8 @@ def _analyse_with_vision(video_path: str,
                           db_lock: threading.Lock) -> tuple[dict, int]:
     """
     Decode video, run Vision detection + IOUTracker, collect face embeddings.
+    All processing is done at DETECT_WIDTH (640 px) — InsightFace det_size is
+    (640, 640) anyway, so full-HD input provides no extra embedding quality.
     Returns (tracks dict, total frame count).
     """
     tracker = IOUTracker(
@@ -205,14 +207,18 @@ def _analyse_with_vision(video_path: str,
     vid       = container.streams.video[0]
 
     for av_frame in container.decode(vid):
-        img      = av_frame.to_ndarray(format="bgr24")
-        orig_h, orig_w = img.shape[:2]
+        img_full = av_frame.to_ndarray(format="bgr24")
+        orig_h, orig_w = img_full.shape[:2]
+
+        # Resize once to DETECT_WIDTH — use this frame for detection,
+        # tracking, face extraction and snapshots throughout.
+        target_w = DETECT_WIDTH
+        target_h = int(orig_h * target_w / orig_w)
+        img = cv2.resize(img_full, (target_w, target_h), interpolation=cv2.INTER_AREA)
 
         if frame_idx % DETECT_EVERY == 0:
-            scale = DETECT_WIDTH / orig_w
-            small = cv2.resize(img, (DETECT_WIDTH, int(orig_h * scale)),
-                               interpolation=cv2.INTER_LINEAR)
-            dets = _vision_detect(small, orig_w, orig_h)
+            # Vision coords mapped to 640p space (same dimensions as img)
+            dets = _vision_detect(img, target_w, target_h)
         else:
             dets = []
 
@@ -254,6 +260,9 @@ def _analyse_with_yolo(video_path: str,
                         db_lock: threading.Lock) -> tuple[dict, int]:
     """
     YOLO v8n + ByteTrack tracking (used when torch/ultralytics is available).
+    YOLO tracking uses the native frame for best detection accuracy.
+    Face extraction uses a 640-px downscale — InsightFace det_size=(640,640)
+    so full-HD input is redundant for embedding quality.
     """
     model      = _thread_yolo()
     tracks:    dict[int, _Track] = {}
@@ -273,26 +282,37 @@ def _analyse_with_yolo(video_path: str,
             frame_idx += 1
             continue
 
-        img    = result.orig_img
+        img_orig = result.orig_img
+        orig_h, orig_w = img_orig.shape[:2]
+
+        # Downscale once for face extraction and snapshots
+        face_w   = DETECT_WIDTH
+        face_h   = int(orig_h * face_w / orig_w)
+        scale    = face_w / orig_w
+        img_face = cv2.resize(img_orig, (face_w, face_h), interpolation=cv2.INTER_AREA)
+
         ids    = result.boxes.id.cpu().numpy().astype(int)
-        bboxes = result.boxes.xyxy.cpu().numpy().astype(int)
+        bboxes = result.boxes.xyxy.cpu().numpy().astype(int)  # in orig coords
 
         for track_id, bbox in zip(ids, bboxes):
             tid = int(track_id)
+            # Scale bbox to face-frame coordinates
+            bbox_f = [int(bbox[0]*scale), int(bbox[1]*scale),
+                      int(bbox[2]*scale), int(bbox[3]*scale)]
             if tid not in tracks:
                 tracks[tid] = _Track(
                     track_id    = tid,
                     first_frame = frame_idx,
-                    bbox_first  = bbox.tolist(),
-                    snap_path   = _save_snapshot_inline(img, bbox.tolist(), tid),
+                    bbox_first  = bbox_f,
+                    snap_path   = _save_snapshot_inline(img_face, bbox_f, tid),
                 )
             tr = tracks[tid]
             tr.frame_count += 1
             tr.last_frame   = frame_idx
-            tr.frame_bboxes[frame_idx] = bbox.tolist()
+            tr.frame_bboxes[frame_idx] = bbox_f
 
             if tr.locked_uid is None and tr.frame_count % FACE_SAMPLE_RATE == 0:
-                emb, sim, uid = _try_face(img, bbox.tolist(), embedder,
+                emb, sim, uid = _try_face(img_face, bbox_f, embedder,
                                           db_embeddings, db_lock)
                 if emb is not None:
                     tr.embeddings.append(emb)
@@ -609,13 +629,25 @@ def _try_face(img: np.ndarray, bbox: list,
               embedder: FaceEmbedder,
               db_embeddings: list,
               db_lock: threading.Lock) -> tuple:
-    """Crop upper body area, run InsightFace, return (emb, sim, uid)."""
+    """Crop upper body area, run InsightFace, return (emb, sim, uid).
+
+    Only the upper FACE_UPPER_FRAC of the detected body bbox is passed to
+    InsightFace — this focuses on the head/shoulder region and avoids
+    confusing the face detector with torso texture.
+    InsightFace det_size=(640,640), so we cap the crop at DETECT_WIDTH px
+    wide; full-HD crops are needlessly slow with zero embedding benefit.
+    """
     x1, y1, x2, y2 = bbox
     h_box = y2 - y1
     crop  = img[max(0, y1) : max(0, y1 + int(h_box * FACE_UPPER_FRAC)),
                 max(0, x1) : max(0, x2)]
     if crop.size == 0:
         return None, 0.0, None
+    # Cap width — InsightFace internally resizes to 640 anyway
+    ch, cw = crop.shape[:2]
+    if cw > DETECT_WIDTH:
+        crop = cv2.resize(crop, (DETECT_WIDTH, int(ch * DETECT_WIDTH / cw)),
+                          interpolation=cv2.INTER_AREA)
     emb = embedder.get_embedding(crop)
     if emb is None:
         return None, 0.0, None

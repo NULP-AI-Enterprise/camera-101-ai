@@ -15,7 +15,7 @@ import numpy as np
 
 log = logging.getLogger("video_writer")
 
-ENCODE_QUEUE_MAX = 150
+ENCODE_QUEUE_MAX = 30   # 150 × ~6 MB (1080p) = 900 MB; 30 ≈ 180 MB
 
 
 class AsyncVideoWriter:

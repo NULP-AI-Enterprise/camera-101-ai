@@ -72,10 +72,10 @@ spec:
           resources:
             requests:
               cpu: "500m"
-              memory: "1Gi"
+              memory: "2Gi"
             limits:
               cpu: "3000m"
-              memory: "4Gi"     # InsightFace + YOLO need headroom
+              memory: "6Gi"     # server + recorder + 1 analyser worker: ~1.5Gi base + ~800Mi models + annotation buffer
           # startupProbe gives the container time to download ML models on
           # first boot (can take 2-3 min). Only after it passes do liveness
           # and readiness probes activate.

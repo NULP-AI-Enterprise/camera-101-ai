@@ -18,6 +18,7 @@ from api.control import router as control_router, watchdog_start
 from api.deps import APP_DIR, limiter
 from api.media import router as media_router
 from api.recordings import router as recordings_router
+from api.reports import router as reports_router
 from api.users import router as users_router
 from log_setup import get_logger
 
@@ -31,6 +32,7 @@ app.include_router(auth_router)
 app.include_router(control_router, prefix="/api")
 app.include_router(users_router,   prefix="/api")
 app.include_router(recordings_router, prefix="/api")
+app.include_router(reports_router,    prefix="/api")
 app.include_router(media_router)
 
 

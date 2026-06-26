@@ -23,14 +23,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* ── nav ── */
 nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;height:52px;position:sticky;top:0;z-index:100}
-.logo{font-weight:700;font-size:1rem;color:var(--text);margin-right:32px;white-space:nowrap}
+.logo{font-weight:700;font-size:1rem;color:var(--text);margin-right:24px;white-space:nowrap}
 .logo span{color:var(--accent)}
-.tabs{display:flex;gap:2px;flex:1}
-.tab{background:none;border:none;color:var(--muted);cursor:pointer;padding:8px 14px;border-radius:var(--radius);font-size:.85rem;font-weight:500;transition:all .15s;white-space:nowrap}
+.tabs{display:flex;gap:2px;flex:1;overflow-x:auto}
+.tab{background:none;border:none;color:var(--muted);cursor:pointer;padding:7px 12px;border-radius:var(--radius);font-size:.82rem;font-weight:500;transition:all .15s;white-space:nowrap;flex-shrink:0}
 .tab:hover{color:var(--text);background:var(--card)}
 .tab.active{color:var(--text);background:var(--accent)}
-.nav-right{display:flex;align-items:center;gap:12px;margin-left:auto}
-.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:6px 12px;border-radius:var(--radius);font-size:.8rem}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:5px 10px;border-radius:var(--radius);font-size:.78rem}
 .logout-btn:hover{color:var(--text);border-color:var(--text)}
 
 /* ── layout ── */
@@ -49,13 +49,14 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 @media(max-width:600px){.grid-3{grid-template-columns:1fr}}
 
 /* ── status pill ── */
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:.8rem;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:.78rem;font-weight:600}
 .pill.on{background:rgba(52,199,89,.15);color:var(--green)}
 .pill.off{background:rgba(255,69,58,.12);color:var(--red)}
-.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
 
 /* ── buttons ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-sm{padding:5px 10px;font-size:.78rem}
 .btn-primary{background:var(--accent);color:#fff}
 .btn-primary:hover{background:#3a66ee}
 .btn-success{background:rgba(52,199,89,.2);color:var(--green);border:1px solid rgba(52,199,89,.3)}
@@ -72,21 +73,21 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .stream-placeholder{width:100%;aspect-ratio:16/9;background:#000;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.9rem}
 
 /* ── module row ── */
-.module-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.module-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .module-row:last-child{border-bottom:none;padding-bottom:0}
-.module-label{flex:1;font-weight:600;font-size:.9rem}
-.module-sub{color:var(--muted);font-size:.75rem;margin-top:2px}
+.module-label{flex:1;font-weight:600;font-size:.88rem}
+.module-sub{color:var(--muted);font-size:.73rem;margin-top:2px}
 
 /* ── events table ── */
 .event-table{width:100%;border-collapse:collapse}
-.event-table th{text-align:left;color:var(--muted);font-size:.75rem;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--border)}
-.event-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.event-table th{text-align:left;color:var(--muted);font-size:.73rem;font-weight:600;padding:5px 8px;border-bottom:1px solid var(--border)}
+.event-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;font-size:.82rem}
 .event-table tr:hover td{background:rgba(255,255,255,.02)}
-.badge-known{background:rgba(52,199,89,.12);color:var(--green);padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
-.badge-unknown{background:rgba(255,159,10,.12);color:var(--orange);padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-known{background:rgba(52,199,89,.12);color:var(--green);padding:2px 7px;border-radius:20px;font-size:.73rem;font-weight:600}
+.badge-unknown{background:rgba(255,159,10,.12);color:var(--orange);padding:2px 7px;border-radius:20px;font-size:.73rem;font-weight:600}
 
 /* ── log terminal ── */
-.log-wrap{background:#000;border-radius:var(--radius);padding:14px;font-family:'SF Mono','Fira Code',monospace;font-size:.78rem;height:480px;overflow-y:auto;line-height:1.6;scroll-behavior:smooth}
+.log-wrap{background:#000;border-radius:var(--radius);padding:14px;font-family:'SF Mono','Fira Code',monospace;font-size:.76rem;height:460px;overflow-y:auto;line-height:1.6;scroll-behavior:smooth}
 .log-line{white-space:pre-wrap;word-break:break-all}
 .log-info{color:#d0d0e0}
 .log-debug{color:#555}
@@ -94,12 +95,12 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .log-error,.log-crit{color:#ff453a}
 
 /* ── user cards ── */
-.user-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.user-card-head{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;user-select:none}
-.user-avatar{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0}
+.user-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+.user-card-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none}
+.user-avatar{width:36px;height:36px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0}
 .user-info{flex:1;min-width:0}
-.user-name{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.user-meta{color:var(--muted);font-size:.75rem;margin-top:2px}
+.user-name{font-weight:600;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta{color:var(--muted);font-size:.73rem;margin-top:2px}
 .user-body{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
 .user-body.open{display:block}
 .webcam-preview{width:100%;border-radius:8px;background:#000;aspect-ratio:4/3;object-fit:cover;margin-bottom:10px}
@@ -108,11 +109,11 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .faceid-wrap{max-width:480px;margin:0 auto;text-align:center}
 .faceid-oval{position:relative;width:160px;height:200px;margin:0 auto 16px}
 .faceid-oval svg{position:absolute;top:0;left:0}
-.faceid-arrow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:56px;line-height:1}
-.faceid-title{font-size:1.25rem;font-weight:700;margin-bottom:6px}
-.faceid-sub{color:var(--muted);font-size:.9rem;margin-bottom:20px}
-.step-dots{display:flex;justify-content:center;gap:6px;margin:12px 0 20px}
-.step-dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+.faceid-arrow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:52px;line-height:1}
+.faceid-title{font-size:1.2rem;font-weight:700;margin-bottom:6px}
+.faceid-sub{color:var(--muted);font-size:.88rem;margin-bottom:20px}
+.step-dots{display:flex;justify-content:center;gap:6px;margin:10px 0 18px}
+.step-dot{width:9px;height:9px;border-radius:50%;background:var(--border)}
 .step-dot.done{background:var(--green)}
 .step-dot.active{background:var(--accent)}
 .webcam-box{position:relative;display:inline-block;width:240px}
@@ -121,45 +122,79 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .capture-flash{position:absolute;inset:0;background:#fff;border-radius:var(--radius);opacity:0;pointer-events:none;transition:opacity .15s}
 
 /* ── recordings ── */
-.rec-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
-.rec-head{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
-.rec-icon{color:var(--accent);font-size:1.2rem}
+.rec-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.rec-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.rec-icon{color:var(--accent);font-size:1.1rem}
 .rec-info{flex:1;min-width:0}
-.rec-time{font-weight:600;font-size:.9rem}
-.rec-meta{color:var(--muted);font-size:.75rem;margin-top:2px}
-.rec-body{display:none;border-top:1px solid var(--border);padding:16px}
+.rec-time{font-weight:600;font-size:.88rem}
+.rec-meta{color:var(--muted);font-size:.73rem;margin-top:2px}
+.rec-body{display:none;border-top:1px solid var(--border);padding:14px}
 .rec-body.open{display:block}
-.snap-grid{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
-.snap-card{width:140px;text-align:center}
-.snap-card img{width:140px;height:140px;object-fit:cover;border-radius:8px;background:#000;display:block}
-.snap-card .snap-label{font-size:.8rem;margin-top:6px;font-weight:600}
-.snap-card .snap-time{font-size:.72rem;color:var(--muted);margin-top:2px}
+.snap-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.snap-card{width:130px;text-align:center}
+.snap-card img{width:130px;height:130px;object-fit:cover;border-radius:8px;background:#000;display:block}
+.snap-card .snap-label{font-size:.78rem;margin-top:5px;font-weight:600}
+.snap-card .snap-time{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+/* ── calendar ── */
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.cal-nav h2{flex:1;font-size:1.1rem;font-weight:700}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-header{text-align:center;color:var(--muted);font-size:.72rem;font-weight:700;padding:4px 0;text-transform:uppercase}
+.cal-day{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;min-height:70px;transition:border-color .15s;position:relative}
+.cal-day:hover{border-color:var(--accent)}
+.cal-day.has-events{border-color:rgba(79,124,255,.4)}
+.cal-day.empty{opacity:.35;cursor:default;pointer-events:none}
+.cal-day.today{border-color:var(--accent);background:rgba(79,124,255,.07)}
+.cal-day-num{font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:4px}
+.cal-day.has-events .cal-day-num{color:var(--text)}
+.cal-persons{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px}
+.cal-person-tag{background:rgba(52,199,89,.15);color:var(--green);padding:1px 5px;border-radius:10px;font-size:.65rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+.cal-unkn{background:rgba(255,159,10,.12);color:var(--orange);padding:1px 5px;border-radius:10px;font-size:.65rem;font-weight:600}
+.cal-rec-count{position:absolute;top:6px;right:6px;font-size:.65rem;color:var(--muted)}
+
+/* ── report ── */
+.report-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.report-controls input[type=date]{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:8px 12px;font-size:.88rem}
+.report-controls input[type=date]:focus{outline:none;border-color:var(--accent)}
+.report-progress{padding:14px;border-radius:var(--radius);background:rgba(79,124,255,.07);border:1px solid rgba(79,124,255,.2);color:var(--accent);font-size:.85rem;display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;flex:1;min-width:100px;text-align:center}
+.stat-num{font-size:1.6rem;font-weight:700;line-height:1}
+.stat-lbl{color:var(--muted);font-size:.72rem;margin-top:4px}
+.report-video-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.timeline-person{display:flex;align-items:center;gap:6px;margin-bottom:3px}
 
 /* ── misc ── */
 .alert{padding:10px 14px;border-radius:var(--radius);font-size:.85rem;margin-bottom:12px}
 .alert-success{background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);color:var(--green)}
 .alert-error{background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.3);color:var(--red)}
 .alert-info{background:rgba(79,124,255,.1);border:1px solid rgba(79,124,255,.3);color:var(--accent)}
-.empty{color:var(--muted);text-align:center;padding:40px;font-size:.9rem}
+.empty{color:var(--muted);text-align:center;padding:36px;font-size:.88rem}
 input[type=text],input[type=password]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:9px 12px;font-size:.9rem}
 input:focus{outline:none;border-color:var(--accent)}
-.form-group{margin-bottom:14px}
-.form-label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:5px;font-weight:500}
-.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+.form-group{margin-bottom:13px}
+.form-label{display:block;color:var(--muted);font-size:.78rem;margin-bottom:4px;font-weight:500}
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.btn-sm{padding:5px 10px;font-size:.78rem}
 
 /* ── login overlay ── */
 #login-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
 #login-overlay .card{width:340px;padding:32px}
-#login-overlay h2{font-size:1.4rem;margin-bottom:4px}
-#login-overlay p{color:var(--muted);font-size:.85rem;margin-bottom:24px}
+#login-overlay h2{font-size:1.35rem;margin-bottom:4px}
+#login-overlay p{color:var(--muted);font-size:.84rem;margin-bottom:22px}
+
+/* ── pagination ── */
+.pagination{display:flex;align-items:center;gap:6px;margin-top:14px;justify-content:center}
+.page-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:5px 11px;border-radius:8px;font-size:.8rem;transition:all .15s}
+.page-btn:hover,.page-btn.active{color:var(--text);border-color:var(--accent);background:rgba(79,124,255,.1)}
+.page-btn:disabled{opacity:.4;cursor:default}
 </style>
 </head>
 <body>
 
-<!-- Login overlay (shown when not authed) -->
+<!-- Login overlay -->
 <div id="login-overlay" style="display:none">
   <div class="card">
     <h2>Sign In</h2>
@@ -185,6 +220,8 @@ input:focus{outline:none;border-color:var(--accent)}
     <button class="tab" onclick="showTab('users',this)">👤 Users</button>
     <button class="tab" onclick="showTab('adduser',this)">➕ Add User</button>
     <button class="tab" onclick="showTab('sessions',this)">📋 Sessions</button>
+    <button class="tab" onclick="showTab('calendar',this)">📅 Calendar</button>
+    <button class="tab" onclick="showTab('report',this)">📊 Report</button>
     <button class="tab" onclick="showTab('logs',this)">📜 Logs</button>
   </div>
   <div class="nav-right">
@@ -194,25 +231,18 @@ input:focus{outline:none;border-color:var(--accent)}
 
 <main>
 
-<!-- ════════════════════════ LIVE PAGE ════════════════════════ -->
+<!-- ════════════════════════ LIVE ════════════════════════ -->
 <div class="page active" id="page-live">
   <div class="grid-2" style="gap:20px;align-items:start">
-
-    <!-- Left: stream -->
     <div>
       <div class="card" style="padding:0;overflow:hidden">
         <img id="stream-img" src="" alt="Live" onerror="streamError()" onload="streamOk()">
-        <div id="stream-placeholder" class="stream-placeholder" style="display:none">
-          No stream — start recorder first
-        </div>
+        <div id="stream-placeholder" class="stream-placeholder" style="display:none">No stream — start Module A first</div>
       </div>
-      <div id="stream-caption" style="color:var(--muted);font-size:.78rem;margin-top:6px;text-align:center"></div>
+      <div id="stream-caption" style="color:var(--muted);font-size:.75rem;margin-top:5px;text-align:center"></div>
     </div>
 
-    <!-- Right: controls + recent events -->
-    <div style="display:flex;flex-direction:column;gap:16px">
-
-      <!-- Module controls -->
+    <div style="display:flex;flex-direction:column;gap:14px">
       <div class="card">
         <div class="card-title">Modules</div>
         <div class="module-row">
@@ -221,7 +251,7 @@ input:focus{outline:none;border-color:var(--accent)}
             <div class="module-sub">RTSP capture + preview</div>
           </div>
           <span id="rec-pill" class="pill off"><span class="dot"></span>Stopped</span>
-          <div class="btn-row" style="margin:0;gap:6px">
+          <div style="display:flex;gap:5px">
             <button id="rec-start" class="btn btn-success btn-sm" onclick="moduleCtrl('recorder','start')">▶</button>
             <button id="rec-stop"  class="btn btn-danger  btn-sm" onclick="moduleCtrl('recorder','stop')">■</button>
             <button class="btn btn-ghost btn-sm" onclick="moduleCtrl('recorder','restart')">↺</button>
@@ -233,7 +263,7 @@ input:focus{outline:none;border-color:var(--accent)}
             <div class="module-sub">Person tracking + face ID</div>
           </div>
           <span id="ana-pill" class="pill off"><span class="dot"></span>Stopped</span>
-          <div class="btn-row" style="margin:0;gap:6px">
+          <div style="display:flex;gap:5px">
             <button id="ana-start" class="btn btn-success btn-sm" onclick="moduleCtrl('analyser','start')">▶</button>
             <button id="ana-stop"  class="btn btn-danger  btn-sm" onclick="moduleCtrl('analyser','stop')">■</button>
             <button class="btn btn-ghost btn-sm" onclick="moduleCtrl('analyser','restart')">↺</button>
@@ -241,40 +271,33 @@ input:focus{outline:none;border-color:var(--accent)}
         </div>
       </div>
 
-      <!-- Recent events -->
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div class="card-title" style="margin:0">Recent Events</div>
-          <span id="events-count" style="color:var(--muted);font-size:.78rem"></span>
+          <span id="events-count" style="color:var(--muted);font-size:.75rem"></span>
         </div>
-        <div id="live-events">
-          <div class="empty">No events yet</div>
-        </div>
+        <div id="live-events"><div class="empty">No events yet</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════ USERS PAGE ════════════════════════ -->
+<!-- ════════════════════════ USERS ════════════════════════ -->
 <div class="page" id="page-users">
   <div class="toolbar">
-    <div style="font-size:1.1rem;font-weight:700">Registered Users</div>
-    <div id="users-count" style="color:var(--muted);font-size:.82rem"></div>
+    <div style="font-size:1.05rem;font-weight:700">Registered Users</div>
+    <div id="users-count" style="color:var(--muted);font-size:.8rem"></div>
   </div>
   <div id="users-list"><div class="empty">Loading…</div></div>
 </div>
 
-<!-- ════════════════════════ ADD USER PAGE ════════════════════════ -->
+<!-- ════════════════════════ ADD USER ════════════════════════ -->
 <div class="page" id="page-adduser">
   <div class="faceid-wrap">
-
-    <!-- Step 0: name + ID form -->
     <div id="fid-form">
       <div class="card" style="text-align:left;max-width:400px;margin:0 auto">
-        <div class="card-title" style="font-size:1.15rem">Face ID Setup</div>
-        <div style="color:var(--muted);font-size:.85rem;margin-bottom:20px">
-          6 guided head positions — like Apple Face ID
-        </div>
+        <div class="card-title" style="font-size:1.1rem">Face ID Setup</div>
+        <div style="color:var(--muted);font-size:.83rem;margin-bottom:18px">6 guided head positions — like Apple Face ID</div>
         <div class="form-group">
           <label class="form-label">Full Name</label>
           <input type="text" id="fid-name" placeholder="John Doe" oninput="fidAutoId()">
@@ -282,19 +305,15 @@ input:focus{outline:none;border-color:var(--accent)}
         <div class="form-group">
           <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
             <span>User ID</span>
-            <button type="button" onclick="fidAutoId(true)"
-                    style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.78rem;padding:0">↻ regenerate</button>
+            <button type="button" onclick="fidAutoId(true)" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.75rem;padding:0">↻ regenerate</button>
           </label>
           <input type="text" id="fid-uid" placeholder="auto-generated from name" style="color:var(--muted)">
         </div>
         <div id="fid-form-err" class="alert alert-error" style="display:none"></div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fidStart()">
-          Start Face Scan →
-        </button>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fidStart()">Start Face Scan →</button>
       </div>
     </div>
 
-    <!-- Steps 1-6 -->
     <div id="fid-scan" style="display:none">
       <div class="faceid-oval">
         <svg id="fid-svg" width="160" height="200" viewBox="0 0 160 200">
@@ -307,82 +326,123 @@ input:focus{outline:none;border-color:var(--accent)}
       </div>
       <div id="fid-step-label" class="faceid-title"></div>
       <div class="step-dots" id="fid-dots"></div>
-      <div id="fid-scan-msg" style="min-height:24px;margin-bottom:12px;font-size:.85rem"></div>
-
+      <div id="fid-scan-msg" style="min-height:22px;margin-bottom:12px;font-size:.83rem"></div>
       <div class="webcam-box" style="margin:0 auto">
         <video id="fid-video" autoplay muted playsinline></video>
         <canvas id="fid-canvas"></canvas>
         <div id="fid-flash" class="capture-flash"></div>
       </div>
-
-      <div class="btn-row" style="justify-content:center;margin-top:16px">
-        <button id="fid-capture-btn" class="btn btn-primary" onclick="fidCapture()">
-          📸 Capture
-        </button>
+      <div class="btn-row" style="justify-content:center;margin-top:14px">
+        <button id="fid-capture-btn" class="btn btn-primary" onclick="fidCapture()">📸 Capture</button>
         <button class="btn btn-ghost" onclick="fidCancel()">Cancel</button>
       </div>
     </div>
 
-    <!-- Done screen -->
     <div id="fid-done" style="display:none;text-align:center;padding:40px 0">
-      <div style="font-size:72px;margin-bottom:16px">✅</div>
+      <div style="font-size:64px;margin-bottom:14px">✅</div>
       <div class="faceid-title">Face ID Complete</div>
-      <div id="fid-done-msg" style="color:var(--muted);font-size:.9rem;margin:8px 0 24px"></div>
+      <div id="fid-done-msg" style="color:var(--muted);font-size:.88rem;margin:8px 0 22px"></div>
       <button class="btn btn-primary" onclick="fidReset()">Register Another Person</button>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════ SESSIONS PAGE ════════════════════════ -->
+<!-- ════════════════════════ SESSIONS ════════════════════════ -->
 <div class="page" id="page-sessions">
   <div class="toolbar">
-    <div style="font-size:1.1rem;font-weight:700">Access Log</div>
+    <div style="font-size:1.05rem;font-weight:700">Access Log</div>
+    <div id="sessions-info" style="color:var(--muted);font-size:.8rem"></div>
     <div style="flex:1"></div>
-    <button class="btn btn-ghost" onclick="reanalyseAll(this)">🔄 Re-analyze unknowns</button>
-    <button class="btn btn-danger" onclick="clearAll()">🗑 Clear all</button>
+    <button class="btn btn-ghost btn-sm" onclick="reanalyseAll(this)">🔄 Re-analyze unknowns</button>
+    <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 Clear all</button>
   </div>
   <div id="sessions-list"><div class="empty">Loading…</div></div>
+  <div id="sessions-pagination" class="pagination"></div>
 </div>
 
-<!-- ════════════════════════ LOGS PAGE ════════════════════════ -->
+<!-- ════════════════════════ CALENDAR ════════════════════════ -->
+<div class="page" id="page-calendar">
+  <div class="cal-nav">
+    <button class="btn btn-ghost btn-sm" onclick="calShift(-1)">‹ Prev</button>
+    <h2 id="cal-title"></h2>
+    <button class="btn btn-ghost btn-sm" onclick="calShift(1)">Next ›</button>
+    <button class="btn btn-ghost btn-sm" onclick="calGoToday()">Today</button>
+  </div>
+  <div class="cal-grid" id="cal-grid">
+    <div class="cal-header">Sun</div><div class="cal-header">Mon</div>
+    <div class="cal-header">Tue</div><div class="cal-header">Wed</div>
+    <div class="cal-header">Thu</div><div class="cal-header">Fri</div>
+    <div class="cal-header">Sat</div>
+  </div>
+  <div id="cal-loading" class="empty" style="display:none">Loading…</div>
+</div>
+
+<!-- ════════════════════════ REPORT ════════════════════════ -->
+<div class="page" id="page-report">
+  <div class="toolbar" style="margin-bottom:4px">
+    <div style="font-size:1.05rem;font-weight:700">Daily Report</div>
+  </div>
+  <div class="report-controls">
+    <button class="btn btn-ghost btn-sm" onclick="reportSetDate('today')">Today</button>
+    <button class="btn btn-ghost btn-sm" onclick="reportSetDate('yesterday')">Yesterday</button>
+    <input type="date" id="report-date" style="color-scheme:dark">
+    <button class="btn btn-primary" onclick="generateReport()">
+      <span id="report-gen-spin" class="spinner" style="display:none"></span>
+      Generate Report
+    </button>
+  </div>
+  <div id="report-progress" style="display:none" class="report-progress">
+    <span class="spinner"></span>
+    <span id="report-progress-msg">Generating…</span>
+  </div>
+  <div id="report-result" style="display:none"></div>
+  <div id="report-error" class="alert alert-error" style="display:none"></div>
+</div>
+
+<!-- ════════════════════════ LOGS ════════════════════════ -->
 <div class="page" id="page-logs">
-  <div class="toolbar" style="margin-bottom:12px">
-    <div style="font-size:1.1rem;font-weight:700">System Logs</div>
+  <div class="toolbar" style="margin-bottom:10px">
+    <div style="font-size:1.05rem;font-weight:700">System Logs</div>
     <div style="flex:1"></div>
     <button class="tab active" id="log-tab-stream"   onclick="switchLog('stream')">Module A</button>
     <button class="tab"        id="log-tab-analyser" onclick="switchLog('analyser')">Module B</button>
-    <button class="btn btn-danger" onclick="clearLog()">🗑 Clear</button>
+    <button class="btn btn-danger btn-sm" onclick="clearLog()">🗑 Clear</button>
   </div>
   <div class="log-wrap" id="log-box"></div>
-  <div style="color:var(--muted);font-size:.75rem;margin-top:6px" id="log-caption"></div>
+  <div style="color:var(--muted);font-size:.73rem;margin-top:5px" id="log-caption"></div>
 </div>
 
 </main>
 
 <script>
 const AUTHED = '__AUTHED__' === 'true';
-let _currentLog = 'stream';
-let _logSse = null;
-let _statusInterval = null;
-let _eventsInterval = null;
-let _sessionUsers = [];
+let _currentLog  = 'stream';
+let _logSse      = null;
+let _statusInterval  = null;
+let _eventsInterval  = null;
+let _sessionUsers    = [];
+let _sessionsPage    = 0;
+let _sessionsAll     = [];
+const _SESSIONS_PER_PAGE = 15;
+let _calYear  = new Date().getFullYear();
+let _calMonth = new Date().getMonth() + 1;  // 1-based
+let _calData  = {};   // {date → day object}
+let _reportPollTimer = null;
+const _camStreams = {};
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 if (!AUTHED) {
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('login-user').focus();
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (AUTHED) init();
-});
-
+document.addEventListener('DOMContentLoaded', () => { if (AUTHED) init(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-overlay').style.display !== 'none') doLogin();
 });
 
 function init() {
   document.getElementById('stream-img').src = '/stream';
+  reportSetDate('today');
   startStatusPoll();
   startEventsPoll();
 }
@@ -396,7 +456,6 @@ async function doLogin() {
   if (r.ok) { window.location.href = '/'; }
   else { document.getElementById('login-err').textContent = 'Invalid credentials'; }
 }
-
 function doLogout() { location.href = '/logout'; }
 
 // ── tab navigation ────────────────────────────────────────────────────────────
@@ -408,6 +467,7 @@ function showTab(name, btn) {
 
   if (name === 'users')    loadUsers();
   if (name === 'sessions') loadSessions();
+  if (name === 'calendar') loadCalendar();
   if (name === 'logs')     startLog(_currentLog);
   if (name === 'live')     { startStatusPoll(); startEventsPoll(); }
   if (name !== 'logs' && _logSse) { _logSse.close(); _logSse = null; }
@@ -419,19 +479,15 @@ function startStatusPoll() {
   updateStatus();
   _statusInterval = setInterval(updateStatus, 3000);
 }
-
 async function updateStatus() {
   try {
     const s = await api('GET', '/api/status');
     setModule('rec', s.recorder);
     setModule('ana', s.analyser);
-    if (s.preview_age !== null) {
-      document.getElementById('stream-caption').textContent =
-        `Last frame: ${s.preview_age}s ago`;
-    }
+    if (s.preview_age !== null)
+      document.getElementById('stream-caption').textContent = `Last frame: ${s.preview_age}s ago`;
   } catch(e) {}
 }
-
 function setModule(prefix, running) {
   const pill  = document.getElementById(prefix + '-pill');
   const start = document.getElementById(prefix + '-start');
@@ -441,21 +497,18 @@ function setModule(prefix, running) {
   if (start) start.disabled = running;
   if (stop)  stop.disabled  = !running;
 }
-
 async function moduleCtrl(mod, action) {
   await api('POST', `/api/control/${mod}/${action}`);
   updateStatus();
 }
 
-// ── stream image ──────────────────────────────────────────────────────────────
+// ── stream ────────────────────────────────────────────────────────────────────
 let _streamRetry = null;
 function streamError() {
   document.getElementById('stream-img').style.display = 'none';
   document.getElementById('stream-placeholder').style.display = 'flex';
-  // Retry every 5 s — stream restarts when Module A comes back up
   if (!_streamRetry) _streamRetry = setInterval(() => {
-    const img = document.getElementById('stream-img');
-    img.src = '/stream?' + Date.now();   // cache-bust so browser re-fetches
+    document.getElementById('stream-img').src = '/stream?' + Date.now();
   }, 5000);
 }
 function streamOk() {
@@ -470,7 +523,6 @@ function startEventsPoll() {
   loadLiveEvents();
   _eventsInterval = setInterval(loadLiveEvents, 5000);
 }
-
 async function loadLiveEvents() {
   try {
     const recs = await api('GET', '/api/recordings');
@@ -487,7 +539,7 @@ async function loadLiveEvents() {
         const dur  = (e.first_seen && e.last_seen)
           ? `${Math.round((new Date(e.last_seen) - new Date(e.first_seen)) / 1000)}s` : '—';
         const badge = e.user_id
-          ? `<span class="badge-known">${e.user_name || e.user_id}</span>`
+          ? `<span class="badge-known">${esc(e.user_name || e.user_id)}</span>`
           : `<span class="badge-unknown">Unknown</span>`;
         return `<tr><td>${time}</td><td>${badge}</td><td>${dur}</td></tr>`;
       }).join('')}</tbody>
@@ -496,36 +548,37 @@ async function loadLiveEvents() {
 }
 
 // ── users ─────────────────────────────────────────────────────────────────────
-const _camStreams = {};   // uid → MediaStream
-
 async function loadUsers() {
   const el = document.getElementById('users-list');
   el.innerHTML = '<div class="empty">Loading…</div>';
   const users = await api('GET', '/api/users');
   document.getElementById('users-count').textContent = `${users.length} user(s)`;
-  if (!users.length) { el.innerHTML = '<div class="empty">No users yet. Go to <b>Add User</b> to register someone.</div>'; return; }
+  if (!users.length) {
+    el.innerHTML = '<div class="empty">No users yet. Go to <b>Add User</b> to register someone.</div>';
+    return;
+  }
   el.innerHTML = users.map(u => `
-    <div class="user-card" style="margin-bottom:10px">
+    <div class="user-card">
       <div class="user-card-head" onclick="toggleUser('u_${esc(u.id)}')">
         <div class="user-avatar">${esc((u.name?.[0] || '?').toUpperCase())}</div>
         <div class="user-info">
           <div class="user-name">${esc(u.name)}</div>
           <div class="user-meta">${esc(u.id)} · ${u.embedding_count} embedding(s) · ${u.created_at ? fmtDate(u.created_at) : '—'}</div>
         </div>
-        <span style="color:var(--muted);margin-left:8px">›</span>
+        <span style="color:var(--muted);margin-left:6px">›</span>
       </div>
       <div class="user-body" id="u_${esc(u.id)}">
-        <div style="margin-top:12px">
-          <div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Add face angle</div>
+        <div style="margin-top:10px">
+          <div style="font-weight:600;font-size:.83rem;margin-bottom:8px">Add face angle</div>
           <video id="cam_${esc(u.id)}" class="webcam-preview" autoplay muted playsinline style="display:none"></video>
           <canvas id="cv_${esc(u.id)}" style="display:none"></canvas>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost" onclick="startCam('${esc(u.id)}')">📷 Camera</button>
-            <button class="btn btn-success" id="cap_${esc(u.id)}" style="display:none" onclick="captureCam('${esc(u.id)}')">📸 Capture</button>
-            <label class="btn btn-ghost" style="cursor:pointer">🖼 Upload photo<input type="file" accept="image/*" style="display:none" onchange="uploadFaceFile('${esc(u.id)}',this)"></label>
-            <button class="btn btn-danger" onclick="deleteUser('${esc(u.id)}', '${esc(u.name)}')">🗑 Delete</button>
+            <button class="btn btn-ghost btn-sm" onclick="startCam('${esc(u.id)}')">📷 Camera</button>
+            <button class="btn btn-success btn-sm" id="cap_${esc(u.id)}" style="display:none" onclick="captureCam('${esc(u.id)}')">📸 Capture</button>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer">🖼 Upload<input type="file" accept="image/*" style="display:none" onchange="uploadFaceFile('${esc(u.id)}',this)"></label>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.id)}', '${esc(u.name)}')">🗑 Delete</button>
           </div>
-          <div id="msg_${esc(u.id)}" style="margin-top:8px;font-size:.82rem"></div>
+          <div id="msg_${esc(u.id)}" style="margin-top:7px;font-size:.8rem"></div>
         </div>
       </div>
     </div>`).join('');
@@ -533,17 +586,16 @@ async function loadUsers() {
 
 function toggleUser(id) {
   const el = document.getElementById(id);
-  const opening = !el.classList.contains('open');
-  if (!opening) {
-    // Stop any running camera when collapsing the card
-    const uid = id.replace(/^u_/, '');
-    stopCam(uid);
+  if (!el.classList.contains('open')) {
+    el.classList.add('open');
+  } else {
+    stopCam(id.replace(/^u_/, ''));
+    el.classList.remove('open');
   }
-  el.classList.toggle('open');
 }
 
 async function startCam(uid) {
-  stopCam(uid);   // stop any previous stream for this slot first
+  stopCam(uid);
   const video = document.getElementById(`cam_${uid}`);
   try {
     const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
@@ -557,10 +609,7 @@ async function startCam(uid) {
 }
 
 function stopCam(uid) {
-  if (_camStreams[uid]) {
-    _camStreams[uid].getTracks().forEach(t => t.stop());
-    delete _camStreams[uid];
-  }
+  if (_camStreams[uid]) { _camStreams[uid].getTracks().forEach(t => t.stop()); delete _camStreams[uid]; }
   const video = document.getElementById(`cam_${uid}`);
   if (video) { video.srcObject = null; video.style.display = 'none'; }
   const cap = document.getElementById(`cap_${uid}`);
@@ -568,49 +617,31 @@ function stopCam(uid) {
 }
 
 async function captureCam(uid) {
-  const video  = document.getElementById(`cam_${uid}`);
+  const video = document.getElementById(`cam_${uid}`);
   const canvas = document.getElementById(`cv_${uid}`);
-  canvas.width  = video.videoWidth  || 640;
+  canvas.width = video.videoWidth || 640;
   canvas.height = video.videoHeight || 480;
   canvas.getContext('2d').drawImage(video, 0, 0);
   canvas.toBlob(async blob => {
     const fd = new FormData();
     fd.append('file', blob, 'frame.jpg');
-    try {
-      const r = await fetch(`/api/users/${uid}/embeddings`, {method:'POST', body:fd});
-      const j = await r.json();
-      const msg = document.getElementById(`msg_${uid}`);
-      if (r.ok) {
-        msg.innerHTML = `<span style="color:var(--green)">Saved! ${j.embedding_count} angle(s) total.</span>`;
-        loadUsers();
-      } else {
-        msg.innerHTML = `<span style="color:var(--red)">${j.detail || 'Error'}</span>`;
-      }
-    } catch(e) {
-      document.getElementById(`msg_${uid}`).innerHTML = `<span style="color:var(--red)">Network error</span>`;
-    }
+    const r = await fetch(`/api/users/${uid}/embeddings`, {method:'POST', body:fd});
+    const j = await r.json();
+    const msg = document.getElementById(`msg_${uid}`);
+    if (r.ok) { msg.innerHTML = `<span style="color:var(--green)">Saved! ${j.embedding_count} angle(s).</span>`; loadUsers(); }
+    else { msg.innerHTML = `<span style="color:var(--red)">${esc(j.detail || 'Error')}</span>`; }
   }, 'image/jpeg', 0.92);
 }
 
 async function uploadFaceFile(uid, input) {
-  const file = input.files[0];
-  if (!file) return;
+  const file = input.files[0]; if (!file) return;
   const msg = document.getElementById(`msg_${uid}`);
   msg.innerHTML = '<span class="spinner"></span> Processing…';
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const r = await fetch(`/api/users/${uid}/embeddings`, {method:'POST', body:fd});
-    const j = await r.json();
-    if (r.ok) {
-      msg.innerHTML = `<span style="color:var(--green)">Saved! ${j.embedding_count} angle(s) total.</span>`;
-      loadUsers();
-    } else {
-      msg.innerHTML = `<span style="color:var(--red)">${j.detail || 'Error'}</span>`;
-    }
-  } catch(e) {
-    msg.innerHTML = `<span style="color:var(--red)">Network error</span>`;
-  }
+  const fd = new FormData(); fd.append('file', file);
+  const r = await fetch(`/api/users/${uid}/embeddings`, {method:'POST', body:fd});
+  const j = await r.json();
+  if (r.ok) { msg.innerHTML = `<span style="color:var(--green)">Saved! ${j.embedding_count} angle(s).</span>`; loadUsers(); }
+  else { msg.innerHTML = `<span style="color:var(--red)">${esc(j.detail || 'Error')}</span>`; }
   input.value = '';
 }
 
@@ -620,32 +651,27 @@ async function deleteUser(uid, name) {
   loadUsers();
 }
 
-// ── face id add user ──────────────────────────────────────────────────────────
+// ── face id ───────────────────────────────────────────────────────────────────
 const FID_STEPS = [
-  {label:'Look straight ahead',       arrow:'◎'},
-  {label:'Turn slightly right',        arrow:'→'},
-  {label:'Turn slightly left',         arrow:'←'},
-  {label:'Tilt slightly up',           arrow:'↑'},
-  {label:'Tilt slightly down',         arrow:'↓'},
-  {label:'Any comfortable angle',      arrow:'↗'},
+  {label:'Look straight ahead', arrow:'◎'},
+  {label:'Turn slightly right',  arrow:'→'},
+  {label:'Turn slightly left',   arrow:'←'},
+  {label:'Tilt slightly up',     arrow:'↑'},
+  {label:'Tilt slightly down',   arrow:'↓'},
+  {label:'Any comfortable angle',arrow:'↗'},
 ];
-let _fidStep = 0;
-let _fidBlobs = [];
-let _fidStream = null;
-let _fidUid = '';
-let _fidName = '';
+let _fidStep = 0, _fidBlobs = [], _fidStream = null, _fidUid = '', _fidName = '';
 
 function fidAutoId(force) {
   const nameEl = document.getElementById('fid-name');
   const uidEl  = document.getElementById('fid-uid');
   const name   = nameEl.value.trim();
-  // Only auto-fill when empty or force=true (regenerate button)
   if (!force && uidEl.value.trim()) return;
   if (!name) { uidEl.value = ''; return; }
   const slug = name.toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')  // strip diacritics (Ї→I etc.)
-    .replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0, 18) || 'user';
-  const suffix = Math.random().toString(36).slice(2, 6);
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,18) || 'user';
+  const suffix = Math.random().toString(36).slice(2,6);
   uidEl.value = `${slug}_${suffix}`;
   uidEl.style.color = '';
 }
@@ -655,27 +681,18 @@ async function fidStart() {
   const name = document.getElementById('fid-name').value.trim();
   const err  = document.getElementById('fid-form-err');
   if (!name) { showAlert(err, 'Full name is required'); return; }
-  // Auto-generate UID if still empty
   if (!uid) fidAutoId(true);
   const finalUid = document.getElementById('fid-uid').value.trim();
   if (!finalUid) { showAlert(err, 'Could not generate ID — enter manually'); return; }
-
   try {
-    const fd = new FormData();
-    fd.append('user_id', finalUid);
-    fd.append('name', name);
-    const r = await fetch('/api/users', {method:'POST', body: fd});
+    const fd = new FormData(); fd.append('user_id', finalUid); fd.append('name', name);
+    const r = await fetch('/api/users', {method:'POST', body:fd});
     if (!r.ok) { const j = await r.json(); showAlert(err, j.detail || 'Error'); return; }
   } catch(e) { showAlert(err, 'Network error'); return; }
-
-  _fidUid  = finalUid;
-  _fidName = name;
-  _fidStep = 0;
-  _fidBlobs = [];
+  _fidUid = finalUid; _fidName = name; _fidStep = 0; _fidBlobs = [];
   document.getElementById('fid-form').style.display = 'none';
   document.getElementById('fid-scan').style.display = 'block';
-  await fidStartCam();
-  fidRenderStep();
+  await fidStartCam(); fidRenderStep();
 }
 
 async function fidStartCam() {
@@ -684,7 +701,8 @@ async function fidStartCam() {
     _fidStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480}});
     video.srcObject = _fidStream;
   } catch(e) {
-    document.getElementById('fid-scan-msg').innerHTML = `<span style="color:var(--red)">Camera access denied. Check browser permissions.</span>`;
+    document.getElementById('fid-scan-msg').innerHTML =
+      `<span style="color:var(--red)">Camera access denied. Check browser permissions.</span>`;
   }
 }
 
@@ -693,68 +711,44 @@ function fidRenderStep() {
   document.getElementById('fid-step-label').textContent = step.label;
   document.getElementById('fid-arrow').textContent = step.arrow;
   document.getElementById('fid-scan-msg').textContent = '';
-
-  // dots
-  const dots = document.getElementById('fid-dots');
-  dots.innerHTML = FID_STEPS.map((_, i) =>
+  document.getElementById('fid-dots').innerHTML = FID_STEPS.map((_,i) =>
     `<div class="step-dot ${i < _fidStep ? 'done' : i === _fidStep ? 'active' : ''}"></div>`
   ).join('');
-
-  // progress ring
-  const pct   = _fidStep / FID_STEPS.length;
-  const perim = 2 * Math.PI * (74 + 92) / 2;   // approx ellipse circumference
-  document.getElementById('fid-ring').setAttribute('stroke-dasharray',
-    `${Math.round(perim * pct)} 9999`);
+  const pct = _fidStep / FID_STEPS.length;
+  const perim = 2 * Math.PI * (74 + 92) / 2;
+  document.getElementById('fid-ring').setAttribute('stroke-dasharray', `${Math.round(perim*pct)} 9999`);
 }
 
 async function fidCapture() {
-  const video  = document.getElementById('fid-video');
+  const video = document.getElementById('fid-video');
   const canvas = document.getElementById('fid-canvas');
-  const btn    = document.getElementById('fid-capture-btn');
-  const msg    = document.getElementById('fid-scan-msg');
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 480;
+  const btn = document.getElementById('fid-capture-btn');
+  const msg = document.getElementById('fid-scan-msg');
+  canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480;
   canvas.getContext('2d').drawImage(video, 0, 0);
-
-  // flash
   const flash = document.getElementById('fid-flash');
-  flash.style.opacity = '0.8';
-  setTimeout(() => flash.style.opacity = '0', 200);
-
-  btn.disabled = true;
-  msg.innerHTML = '<span class="spinner"></span> Checking face…';
-
+  flash.style.opacity = '0.8'; setTimeout(() => flash.style.opacity = '0', 200);
+  btn.disabled = true; msg.innerHTML = '<span class="spinner"></span> Checking face…';
   await new Promise(res => canvas.toBlob(async blob => {
-    const fd = new FormData();
-    fd.append('file', blob, 'frame.jpg');
+    const fd = new FormData(); fd.append('file', blob, 'frame.jpg');
     try {
       const r = await fetch('/api/face-check', {method:'POST', body:fd});
       const j = await r.json();
       if (!j.face_detected) {
         msg.innerHTML = `<span style="color:var(--red)">No face detected — centre your face and try again</span>`;
-        btn.disabled = false;
-        res();
-        return;
+        btn.disabled = false; res(); return;
       }
       _fidBlobs.push(blob);
-
-      // Send to embeddings endpoint
-      const fd2 = new FormData();
-      fd2.append('file', blob, 'frame.jpg');
+      const fd2 = new FormData(); fd2.append('file', blob, 'frame.jpg');
       const r2 = await fetch(`/api/users/${_fidUid}/embeddings`, {method:'POST', body:fd2});
       const j2 = await r2.json();
-
       if (!r2.ok) {
-        msg.innerHTML = `<span style="color:var(--orange)">${j2.detail} — try a different angle</span>`;
-        btn.disabled = false;
-        res();
-        return;
+        msg.innerHTML = `<span style="color:var(--orange)">${esc(j2.detail)} — try a different angle</span>`;
+        btn.disabled = false; res(); return;
       }
-
       _fidStep++;
-      if (_fidStep >= FID_STEPS.length) {
-        fidDone();
-      } else {
+      if (_fidStep >= FID_STEPS.length) { fidDone(); }
+      else {
         fidRenderStep();
         msg.innerHTML = `<span style="color:var(--green)">✓ Captured (${_fidStep}/${FID_STEPS.length})</span>`;
         btn.disabled = false;
@@ -774,69 +768,69 @@ function fidDone() {
   document.getElementById('fid-done-msg').textContent =
     `${_fidName} · ${_fidUid} — ${_fidBlobs.length} angle(s) saved`;
 }
-
 function fidCancel() {
   if (_fidStream) { _fidStream.getTracks().forEach(t => t.stop()); _fidStream = null; }
-  // delete user that was created
   fetch(`/api/users/${_fidUid}`, {method:'DELETE'}).catch(()=>{});
   fidReset();
 }
-
 function fidReset() {
   _fidStep = 0; _fidBlobs = []; _fidUid = ''; _fidName = '';
   document.getElementById('fid-form').style.display = 'block';
   document.getElementById('fid-scan').style.display = 'none';
   document.getElementById('fid-done').style.display = 'none';
-  document.getElementById('fid-uid').value  = '';
+  document.getElementById('fid-uid').value = '';
   document.getElementById('fid-name').value = '';
   document.getElementById('fid-form-err').style.display = 'none';
 }
 
-// ── sessions ──────────────────────────────────────────────────────────────────
+// ── sessions (paginated) ──────────────────────────────────────────────────────
 async function loadSessions() {
   const el = document.getElementById('sessions-list');
   el.innerHTML = '<div class="empty">Loading…</div>';
   try { _sessionUsers = await api('GET', '/api/users'); } catch(e) {}
-  const recs = await api('GET', '/api/recordings');
-  if (!recs.length) { el.innerHTML = '<div class="empty">No recordings yet</div>'; return; }
-  el.innerHTML = recs.map(r => {
+  _sessionsAll = await api('GET', '/api/recordings');
+  document.getElementById('sessions-info').textContent =
+    `${_sessionsAll.length} recording(s)`;
+  _sessionsPage = 0;
+  renderSessionsPage();
+}
+
+function renderSessionsPage() {
+  const el = document.getElementById('sessions-list');
+  const start = _sessionsPage * _SESSIONS_PER_PAGE;
+  const page  = _sessionsAll.slice(start, start + _SESSIONS_PER_PAGE);
+  if (!page.length) { el.innerHTML = '<div class="empty">No recordings yet</div>'; renderPagination(); return; }
+  el.innerHTML = page.map(r => {
     const start  = r.start_time ? fmtDateTime(r.start_time) : '—';
-    const dur    = (r.start_time && r.end_time)
-      ? durStr(r.start_time, r.end_time) : 'ongoing';
+    const dur    = (r.start_time && r.end_time) ? durStr(r.start_time, r.end_time) : 'ongoing';
     const names  = [...new Set(r.events.map(e => esc(e.user_name || e.user_id || 'Unknown')))].join(', ') || '—';
-    const snap   = r.events.map(e => {
+    const snap = r.events.map(e => {
       const badge = e.user_id
         ? `<div class="snap-label" style="color:var(--green)">${esc(e.user_name || e.user_id)}</div>`
         : `<div class="snap-label" style="color:var(--orange)">Unknown</div>`;
-      const t = (e.first_seen && e.last_seen)
-        ? `${fmtTime(e.first_seen)} – ${fmtTime(e.last_seen)}` : '';
+      const t = (e.first_seen && e.last_seen) ? `${fmtTime(e.first_seen)} – ${fmtTime(e.last_seen)}` : '';
       const reanaBtn = !e.user_id && r.video_exists
-        ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:4px 8px;margin-top:4px" onclick="reanalyseOne(${e.id}, this)">🔄 Re-ID</button>` : '';
+        ? `<button class="btn btn-ghost" style="font-size:.7rem;padding:3px 7px;margin-top:3px" onclick="reanalyseOne(${e.id},this)">🔄 Re-ID</button>` : '';
       const assignUI = !e.user_id && _sessionUsers.length
-        ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">
-             <select id="asgn_${e.id}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 5px;font-size:.7rem;width:140px">
+        ? `<div style="margin-top:5px;display:flex;flex-direction:column;gap:3px">
+             <select id="asgn_${e.id}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:2px 5px;font-size:.68rem;width:130px">
                <option value="">— link to user —</option>
                ${_sessionUsers.map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}
              </select>
-             <button class="btn btn-success" style="font-size:.7rem;padding:3px 8px" onclick="assignEventUser(${e.id},this)">✓ Link &amp; Save Face</button>
+             <button class="btn btn-success" style="font-size:.68rem;padding:3px 7px" onclick="assignEventUser(${e.id},this)">✓ Link</button>
            </div>` : '';
       if (e.snapshot_exists) {
-        // ?v= cache-bust: ensures browser always fetches the current file on page load
-        return `<div class="snap-card">
-          <img src="/snapshot/${esc(e.snapshot_path)}?v=${e.id}" loading="lazy" alt="">
-          ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}
-        </div>`;
+        return `<div class="snap-card"><img src="/snapshot/${esc(e.snapshot_path)}?v=${e.id}" loading="lazy" alt="">
+          ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}</div>`;
       }
-      return `<div class="snap-card">
-        <div style="width:140px;height:140px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">no snap</div>
-        ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}
-      </div>`;
+      return `<div class="snap-card"><div style="width:130px;height:130px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.73rem">no snap</div>
+        ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}</div>`;
     }).join('');
     const video = r.video_exists
-      ? `<div style="margin-top:12px"><div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Scene recording</div>
+      ? `<div style="margin-top:10px"><div style="font-size:.78rem;color:var(--muted);margin-bottom:5px">Scene recording</div>
          <video controls style="width:100%;border-radius:var(--radius);background:#000" src="/video/${esc(r.video_path)}"></video>
-         <div style="font-size:.72rem;color:var(--muted);margin-top:4px">${esc(r.video_path)}</div></div>`
-      : `<div style="color:var(--muted);font-size:.8rem;margin-top:8px">Video file not found</div>`;
+         <div style="font-size:.7rem;color:var(--muted);margin-top:3px">${esc(r.video_path)}</div></div>`
+      : `<div style="color:var(--muted);font-size:.78rem;margin-top:6px">Video file not found</div>`;
     return `<div class="rec-item">
       <div class="rec-head" onclick="toggleRec('rec_${r.id}')">
         <span class="rec-icon">📹</span>
@@ -847,71 +841,73 @@ async function loadSessions() {
         <span style="color:var(--muted)">›</span>
       </div>
       <div class="rec-body" id="rec_${r.id}">
-        <div class="snap-grid">${snap}</div>
-        ${video}
+        <div class="snap-grid">${snap}</div>${video}
       </div>
     </div>`;
   }).join('');
+  renderPagination();
 }
 
-function toggleRec(id) {
-  document.getElementById(id).classList.toggle('open');
+function renderPagination() {
+  const total = Math.ceil(_sessionsAll.length / _SESSIONS_PER_PAGE);
+  const el = document.getElementById('sessions-pagination');
+  if (total <= 1) { el.innerHTML = ''; return; }
+  const items = [];
+  items.push(`<button class="page-btn" onclick="goPage(${_sessionsPage-1})" ${_sessionsPage===0?'disabled':''}>‹</button>`);
+  for (let i = 0; i < total; i++) {
+    if (total > 7 && i > 1 && i < total-1 && Math.abs(i - _sessionsPage) > 1) {
+      if (i === 2 || i === total-2) items.push(`<span style="color:var(--muted);padding:0 4px">…</span>`);
+      continue;
+    }
+    items.push(`<button class="page-btn ${i===_sessionsPage?'active':''}" onclick="goPage(${i})">${i+1}</button>`);
+  }
+  items.push(`<button class="page-btn" onclick="goPage(${_sessionsPage+1})" ${_sessionsPage===total-1?'disabled':''}>›</button>`);
+  el.innerHTML = items.join('');
 }
+
+function goPage(n) {
+  const total = Math.ceil(_sessionsAll.length / _SESSIONS_PER_PAGE);
+  if (n < 0 || n >= total) return;
+  _sessionsPage = n;
+  renderSessionsPage();
+  document.getElementById('page-sessions').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function toggleRec(id) { document.getElementById(id).classList.toggle('open'); }
 
 async function assignEventUser(eventId, btn) {
   const sel = document.getElementById(`asgn_${eventId}`);
   const userId = sel ? sel.value : '';
   if (!userId) { if(sel){sel.style.borderColor='var(--red)';setTimeout(()=>sel.style.borderColor='',1500);} return; }
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
-    const fd = new FormData();
-    fd.append('user_id', userId);
+    const fd = new FormData(); fd.append('user_id', userId);
     const r = await fetch(`/api/events/${eventId}/assign-user`, {method:'POST', body:fd});
     const j = await r.json();
-    if (r.ok) {
-      btn.textContent = `✓ ${j.user_name}${j.embedding_added ? ' + face' : ''}`;
-      btn.style.color = 'var(--green)';
-      setTimeout(loadSessions, 1200);
-    } else {
-      btn.textContent = j.detail || 'Error';
-      btn.style.color = 'var(--red)';
-      btn.disabled = false;
-    }
-  } catch(e) {
-    btn.textContent = '✗ Error';
-    btn.disabled = false;
-  }
+    if (r.ok) { btn.textContent = `✓ ${esc(j.user_name)}${j.embedding_added?' + face':''}`; btn.style.color='var(--green)'; setTimeout(loadSessions, 1200); }
+    else { btn.textContent = j.detail || 'Error'; btn.style.color='var(--red)'; btn.disabled=false; }
+  } catch(e) { btn.textContent='✗ Error'; btn.disabled=false; }
 }
 
 async function reanalyseOne(eventId, btn) {
-  btn.disabled = true;
-  btn.textContent = '⏳';
+  btn.disabled = true; btn.textContent = '⏳';
   try {
     const r = await api('POST', `/api/events/${eventId}/reanalyse`);
-    btn.textContent = r.user_name ? `✓ ${r.user_name}` : '✓ Unknown';
+    btn.textContent = r.user_name ? `✓ ${esc(r.user_name)}` : '✓ Unknown';
     btn.style.color = r.user_id ? 'var(--green)' : 'var(--orange)';
-    setTimeout(loadSessions, 800);   // refresh so the card shows updated name/badge
-  } catch(e) {
-    btn.textContent = '✗ Error';
-    btn.disabled = false;
-  }
+    setTimeout(loadSessions, 800);
+  } catch(e) { btn.textContent='✗ Error'; btn.disabled=false; }
 }
 
 async function reanalyseAll(btn) {
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Running…';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running…';
   try {
-    const recs   = await api('GET', '/api/recordings');
+    const recs = await api('GET', '/api/recordings');
     const unknowns = recs.flatMap(r => r.events.filter(e => !e.user_id && r.video_exists).map(e => e.id));
-    for (const id of unknowns) {
-      await api('POST', `/api/events/${id}/reanalyse`).catch(()=>{});
-    }
+    for (const id of unknowns) await api('POST', `/api/events/${id}/reanalyse`).catch(()=>{});
     btn.textContent = `✓ Done (${unknowns.length})`;
     loadSessions();
-  } catch(e) {
-    btn.textContent = '✗ Error';
-  }
+  } catch(e) { btn.textContent='✗ Error'; }
   btn.disabled = false;
 }
 
@@ -921,14 +917,231 @@ async function clearAll() {
   loadSessions();
 }
 
+// ── calendar ──────────────────────────────────────────────────────────────────
+async function loadCalendar() {
+  const month = `${_calYear}-${String(_calMonth).padStart(2,'0')}`;
+  document.getElementById('cal-title').textContent =
+    new Date(_calYear, _calMonth-1, 1).toLocaleDateString([], {year:'numeric', month:'long'});
+  document.getElementById('cal-loading').style.display = 'block';
+
+  let data = [];
+  try { data = await api('GET', `/api/calendar?month=${month}`); } catch(e) {}
+
+  _calData = {};
+  data.forEach(d => { _calData[d.date] = d; });
+  renderCalendar();
+  document.getElementById('cal-loading').style.display = 'none';
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  // Remove all day cells (keep 7 header divs)
+  while (grid.children.length > 7) grid.removeChild(grid.lastChild);
+
+  const today = new Date().toISOString().slice(0,10);
+  const firstDay = new Date(_calYear, _calMonth-1, 1);
+  const daysInMonth = new Date(_calYear, _calMonth, 0).getDate();
+  const startDow = firstDay.getDay(); // 0=Sun
+
+  // Blank leading cells
+  for (let i = 0; i < startDow; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'cal-day empty';
+    grid.appendChild(blank);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${_calYear}-${String(_calMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const info = _calData[dateStr];
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (info ? ' has-events' : '') + (dateStr === today ? ' today' : '');
+    if (info) cell.onclick = () => calOpenReport(dateStr);
+
+    let inner = `<div class="cal-day-num">${d}</div>`;
+    if (info) {
+      inner += `<div class="cal-rec-count">${info.recordings} rec</div>`;
+      inner += `<div class="cal-persons">`;
+      info.persons.forEach(name => {
+        inner += `<span class="cal-person-tag">${esc(name)}</span>`;
+      });
+      if (info.unknown > 0) {
+        inner += `<span class="cal-unkn">${info.unknown}?</span>`;
+      }
+      inner += `</div>`;
+    }
+    cell.innerHTML = inner;
+    grid.appendChild(cell);
+  }
+}
+
+function calShift(delta) {
+  _calMonth += delta;
+  if (_calMonth > 12) { _calMonth = 1; _calYear++; }
+  if (_calMonth < 1)  { _calMonth = 12; _calYear--; }
+  loadCalendar();
+}
+
+function calGoToday() {
+  const now = new Date();
+  _calYear = now.getFullYear();
+  _calMonth = now.getMonth() + 1;
+  loadCalendar();
+}
+
+function calOpenReport(dateStr) {
+  document.getElementById('report-date').value = dateStr;
+  // Switch to Report tab
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-report').classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.includes('Report')) t.classList.add('active');
+  });
+  // Clear previous result so user sees a clean state
+  document.getElementById('report-result').style.display = 'none';
+  document.getElementById('report-error').style.display = 'none';
+  document.getElementById('report-progress').style.display = 'none';
+}
+
+// ── report ────────────────────────────────────────────────────────────────────
+function reportSetDate(which) {
+  const input = document.getElementById('report-date');
+  const now = new Date();
+  if (which === 'today') {
+    input.value = now.toISOString().slice(0,10);
+  } else if (which === 'yesterday') {
+    const y = new Date(now); y.setDate(y.getDate()-1);
+    input.value = y.toISOString().slice(0,10);
+  }
+}
+
+async function generateReport() {
+  const date = document.getElementById('report-date').value;
+  if (!date) { showAlert(document.getElementById('report-error'), 'Select a date first'); return; }
+
+  // tz offset: minutes that UTC is behind local (positive = east of UTC)
+  const tzOffset = -(new Date().getTimezoneOffset());
+
+  document.getElementById('report-result').style.display  = 'none';
+  document.getElementById('report-error').style.display   = 'none';
+  document.getElementById('report-progress').style.display = 'block';
+  document.getElementById('report-progress-msg').textContent = 'Queued…';
+  document.getElementById('report-gen-spin').style.display = 'inline-block';
+
+  try {
+    await api('POST', `/api/reports/generate?date=${encodeURIComponent(date)}&tz_offset=${tzOffset}`);
+    pollReport(date);
+  } catch(e) {
+    document.getElementById('report-progress').style.display = 'none';
+    document.getElementById('report-gen-spin').style.display = 'none';
+    showAlert(document.getElementById('report-error'), 'Failed to start report generation');
+  }
+}
+
+function pollReport(jobId) {
+  if (_reportPollTimer) clearInterval(_reportPollTimer);
+  _reportPollTimer = setInterval(async () => {
+    try {
+      const job = await api('GET', `/api/reports/${encodeURIComponent(jobId)}`);
+      document.getElementById('report-progress-msg').textContent = job.progress || 'Generating…';
+      if (job.status === 'ready') {
+        clearInterval(_reportPollTimer); _reportPollTimer = null;
+        document.getElementById('report-progress').style.display  = 'none';
+        document.getElementById('report-gen-spin').style.display = 'none';
+        renderReport(jobId, job);
+      } else if (job.status === 'error') {
+        clearInterval(_reportPollTimer); _reportPollTimer = null;
+        document.getElementById('report-progress').style.display  = 'none';
+        document.getElementById('report-gen-spin').style.display = 'none';
+        showAlert(document.getElementById('report-error'), job.error || 'Report generation failed');
+      }
+    } catch(e) {
+      clearInterval(_reportPollTimer); _reportPollTimer = null;
+      document.getElementById('report-progress').style.display = 'none';
+      document.getElementById('report-gen-spin').style.display = 'none';
+      showAlert(document.getElementById('report-error'), 'Lost connection while generating report');
+    }
+  }, 2000);
+}
+
+function renderReport(jobId, job) {
+  const s = job.summary;
+  if (!s) {
+    document.getElementById('report-result').style.display = 'block';
+    document.getElementById('report-result').innerHTML =
+      `<div class="alert alert-info">Report loaded from cache. <a href="/api/reports/${encodeURIComponent(jobId)}/video" style="color:var(--accent)">Download video</a></div>`;
+    return;
+  }
+
+  const periodFrom = s.period_start ? fmtDateTime(s.period_start + 'Z') : '—';
+  const periodTo   = s.period_end   ? fmtDateTime(s.period_end   + 'Z') : '—';
+
+  let html = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">📊 ${esc(s.date)}</div>
+      <div style="color:var(--muted);font-size:.8rem;margin-bottom:14px">${periodFrom} → ${periodTo}</div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="stat-num">${s.recording_count}</div><div class="stat-lbl">Recordings</div></div>
+        <div class="stat-box"><div class="stat-num">${s.event_count}</div><div class="stat-lbl">Total events</div></div>
+        <div class="stat-box" style="color:var(--green)"><div class="stat-num">${s.known_count}</div><div class="stat-lbl">Known</div></div>
+        <div class="stat-box" style="color:var(--orange)"><div class="stat-num">${s.unknown_count}</div><div class="stat-lbl">Unknown</div></div>
+      </div>
+    </div>`;
+
+  // Video section
+  html += `<div class="report-video-box" style="margin-bottom:14px">`;
+  if (job.video_ready) {
+    html += `<div style="font-weight:600;margin-bottom:10px">📹 Combined Video</div>
+      <video controls style="width:100%;border-radius:8px;background:#000;max-height:400px"
+             src="/api/reports/${encodeURIComponent(jobId)}/video"></video>
+      <div style="margin-top:8px">
+        <a href="/api/reports/${encodeURIComponent(jobId)}/video" download="report_${esc(jobId)}.mp4"
+           class="btn btn-ghost btn-sm">⬇ Download MP4</a>
+      </div>`;
+  } else {
+    html += `<div style="color:var(--muted);font-size:.85rem">
+      📹 No video available${job.video_error ? `: ${esc(job.video_error)}` : ''}</div>`;
+  }
+  html += `</div>`;
+
+  // Timeline
+  if (s.events && s.events.length) {
+    html += `<div class="card">
+      <div class="card-title">👁 Timeline</div>
+      <table class="event-table">
+        <thead><tr><th>Person</th><th>First seen</th><th>Last seen</th><th>Duration</th><th>Snapshot</th></tr></thead>
+        <tbody>`;
+    s.events.forEach(e => {
+      const badge = e.user_id
+        ? `<span class="badge-known">${esc(e.user_name || e.user_id)}</span>`
+        : `<span class="badge-unknown">Unknown #${e.track_id || e.id}</span>`;
+      const fs  = e.first_seen ? fmtTime(e.first_seen + (e.first_seen.endsWith('Z')?'':'Z')) : '—';
+      const ls  = e.last_seen  ? fmtTime(e.last_seen  + (e.last_seen.endsWith('Z') ?'':'Z')) : '—';
+      const dur = (e.first_seen && e.last_seen)
+        ? durStr(e.first_seen + 'Z', e.last_seen + 'Z') : '—';
+      const snap = e.snapshot_exists
+        ? `<img src="/snapshot/${esc(e.snapshot_path)}?v=${e.id}" style="width:40px;height:40px;object-fit:cover;border-radius:5px" loading="lazy">`
+        : '—';
+      html += `<tr><td>${badge}</td><td>${fs}</td><td>${ls}</td><td>${dur}</td><td>${snap}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="empty">No events found for this day</div>`;
+  }
+
+  const el = document.getElementById('report-result');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
 // ── logs ──────────────────────────────────────────────────────────────────────
 function startLog(file) {
   _currentLog = file;
   if (_logSse) _logSse.close();
   const box = document.getElementById('log-box');
   box.innerHTML = '';
-  document.getElementById('log-caption').textContent = `logs/${file === 'stream' ? 'stream.log' : 'analyser.log'}  — live tail`;
-
+  document.getElementById('log-caption').textContent =
+    `logs/${file === 'stream' ? 'stream.log' : 'analyser.log'}  — live tail`;
   _logSse = new EventSource(`/logs/stream?file=${file}`);
   _logSse.onmessage = e => {
     const line = JSON.parse(e.data);
@@ -938,23 +1151,18 @@ function startLog(file) {
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
   };
-  _logSse.onerror = () => {
-    setTimeout(() => { if (_logSse) startLog(_currentLog); }, 3000);
-  };
+  _logSse.onerror = () => { setTimeout(() => { if (_logSse) startLog(_currentLog); }, 3000); };
 }
-
 function switchLog(file) {
-  document.getElementById('log-tab-stream').classList.toggle('active', file === 'stream');
+  document.getElementById('log-tab-stream').classList.toggle('active',   file === 'stream');
   document.getElementById('log-tab-analyser').classList.toggle('active', file === 'analyser');
   startLog(file);
 }
-
 async function clearLog() {
   if (!confirm(`Clear ${_currentLog}.log?`)) return;
   await api('DELETE', `/logs/${_currentLog}`);
   document.getElementById('log-box').innerHTML = '';
 }
-
 function logClass(line) {
   if (/\[ERROR\]|\[CRITI\]/.test(line)) return 'log-error';
   if (/\[WARN \]/.test(line)) return 'log-warn';
@@ -977,24 +1185,22 @@ async function api(method, url, body) {
 }
 
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  return new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 function fmtDate(iso) {
-  return new Date(iso).toLocaleDateString([], {year:'numeric',month:'short',day:'numeric'});
+  return new Date(iso).toLocaleDateString([],{year:'numeric',month:'short',day:'numeric'});
 }
 function fmtDateTime(iso) {
   const d = new Date(iso);
-  return d.toLocaleDateString([], {month:'short',day:'numeric'}) + ' ' +
-         d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  return d.toLocaleDateString([],{month:'short',day:'numeric'}) + ' ' +
+         d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 function durStr(a, b) {
   const sec = Math.round((new Date(b) - new Date(a)) / 1000);
+  if (sec < 0) return '—';
   return sec >= 60 ? `${Math.floor(sec/60)}m ${sec%60}s` : `${sec}s`;
 }
-function showAlert(el, msg) {
-  el.textContent = msg;
-  el.style.display = 'block';
-}
+function showAlert(el, msg) { el.textContent = msg; el.style.display = 'block'; }
 </script>
 </body>
 </html>

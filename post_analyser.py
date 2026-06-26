@@ -47,7 +47,7 @@ log = get_logger("analyser", "analyser.log")
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RAW_EVENTS_DIR   = "raw_events"
 MIN_WORKERS        = int(os.environ.get("ANALYSER_MIN_WORKERS", "1"))
-MAX_WORKERS        = int(os.environ.get("ANALYSER_WORKERS",     "3"))
+MAX_WORKERS        = int(os.environ.get("ANALYSER_WORKERS",     "1"))  # each worker loads ~800 MB of models; keep at 1 within a 4 Gi pod
 SCALE_UP_THRESHOLD = int(os.environ.get("SCALE_UP_THRESHOLD",  "2"))
 WORKER_IDLE_SECS   = float(os.environ.get("WORKER_IDLE_SECS",  "180"))
 SNAPSHOTS_DIR    = "snapshots"

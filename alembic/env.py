@@ -1,5 +1,13 @@
 from logging.config import fileConfig
 import os
+import sys
+
+# Ensure the app root is on sys.path so `db` can be imported regardless of
+# where alembic is invoked from (e.g. `alembic --config /app/alembic.ini`).
+_here = os.path.dirname(os.path.abspath(__file__))          # .../alembic/
+_app_root = os.path.dirname(_here)                          # .../app/
+if _app_root not in sys.path:
+    sys.path.insert(0, _app_root)
 
 from sqlalchemy import engine_from_config, pool, event
 from alembic import context

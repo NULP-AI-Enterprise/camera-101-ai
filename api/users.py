@@ -52,9 +52,15 @@ def delete_user(user_id: str, _=Depends(require_auth)):
 
 
 @router.post("/users/{user_id}/embeddings")
-async def add_embedding(user_id: str, file: UploadFile = File(...),
-                        _=Depends(require_auth)):
-    data = await file.read()
+def add_embedding(user_id: str, file: UploadFile = File(...),
+                  _=Depends(require_auth)):
+    # sync def → FastAPI runs this in a threadpool, so get_embedder() (which
+    # loads InsightFace the first time) never blocks the async event loop.
+    with get_session() as db:
+        if not db.get(User, user_id):
+            raise HTTPException(404, f"User '{user_id}' not found")
+
+    data = file.file.read()
     img  = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise HTTPException(400, "Cannot decode image")

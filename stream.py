@@ -53,7 +53,10 @@ RECORD_EVERY           = 2       # write every Nth frame to H.264 — halves enc
                                   # at 25 fps → effective 12.5 fps recording (fine for ID)
 COOLDOWN_SECS     = 5.0          # silence before closing a recording
 MIN_RECORD_SECS  = 1.0          # discard clips shorter than this
-PREVIEW_EVERY    = 5            # submit preview JPEG every N frames
+PREVIEW_EVERY    = 3            # submit preview JPEG every N frames (~8 fps preview)
+PREVIEW_WIDTH    = int(os.environ.get("PREVIEW_WIDTH", "640"))
+                                  # resize preview to this width before JPEG encode
+                                  # 640×360 encodes in ~3 ms vs ~15 ms at 1080p
 RAW_EVENTS_DIR   = "raw_events"
 PREVIEW_PATH     = "stream_preview.jpg"
 PREVIEW_TMP      = "stream_preview.tmp.jpg"   # must end in .jpg for OpenCV codec detection
@@ -121,10 +124,16 @@ class _PreviewWriter:
         threading.Thread(target=self._run, daemon=True, name="preview").start()
 
     def submit(self, frame: np.ndarray, label: str, fps: float) -> None:
-        disp  = frame.copy()
-        color = (0, 0, 220) if label == "REC" else (180, 180, 0)
+        # Downscale before OSD + JPEG encode: 15 ms → 3 ms at 640×360
+        h, w   = frame.shape[:2]
+        pw     = PREVIEW_WIDTH
+        ph     = int(h * pw / w)
+        disp   = cv2.resize(frame, (pw, ph), interpolation=cv2.INTER_LINEAR)
+        color  = (0, 0, 220) if label == "REC" else (180, 180, 0)
+        fscale = pw / 960.0   # keep text size relative to width
         cv2.putText(disp, f"{label}  {fps:.0f} fps",
-                    (10, 36), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2, cv2.LINE_AA)
+                    (8, max(24, int(28 * fscale))),
+                    cv2.FONT_HERSHEY_SIMPLEX, fscale * 0.95, color, 2, cv2.LINE_AA)
         try:
             self._q.put_nowait(disp)
         except queue.Full:

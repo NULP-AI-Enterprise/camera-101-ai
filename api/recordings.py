@@ -85,7 +85,10 @@ def assign_event_user(event_id: int, user_id: str = Form(""), _=Depends(require_
     if not user_id:
         raise HTTPException(400, "user_id is required")
 
-    embedded = False
+    embedded   = False
+    user_name  = user_id   # fallback before session opens
+    snap_path  = None
+
     with get_session() as db:
         ev = db.get(PersonEvent, event_id)
         if not ev:
@@ -93,21 +96,26 @@ def assign_event_user(event_id: int, user_id: str = Form(""), _=Depends(require_
         u = db.get(User, user_id)
         if not u:
             raise HTTPException(404, f"User '{user_id}' not found")
+        user_name  = u.name          # read while session is open
+        snap_path  = ev.snapshot_path
         ev.user_id = user_id
 
-        # Try to extract a face embedding from the snapshot photo
-        if ev.snapshot_path and os.path.exists(ev.snapshot_path):
-            try:
-                img = cv2.imread(ev.snapshot_path)
-                if img is not None:
-                    emb = get_embedder().get_embedding(img)
-                    if emb is not None:
-                        db.add(UserFeature(user_id=user_id, embedding=emb_to_bytes(emb)))
-                        embedded = True
-            except Exception:
-                pass
+    # Extract face embedding outside the DB session to avoid holding the
+    # connection open during the (potentially slow) InsightFace call.
+    if snap_path and os.path.exists(snap_path):
+        try:
+            img = cv2.imread(snap_path)
+            if img is not None:
+                emb = get_embedder().get_embedding(img)
+                if emb is not None:
+                    with get_session() as db:
+                        db.add(UserFeature(user_id=user_id,
+                                           embedding=emb_to_bytes(emb)))
+                    embedded = True
+        except Exception:
+            pass
 
-    return {"ok": True, "user_name": u.name, "embedding_added": embedded}
+    return {"ok": True, "user_name": user_name, "embedding_added": embedded}
 
 
 @router.delete("/recordings/all")

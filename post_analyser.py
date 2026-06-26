@@ -54,7 +54,7 @@ SNAPSHOTS_DIR    = "snapshots"
 PID_FILE         = "analyser.pid"
 POLL_INTERVAL    = 2.0      # seconds between folder scans
 MIN_TRACK_FRAMES = 20       # tracks shorter than this with no face → false positive
-LOCK_THRESHOLD   = 0.70     # similarity to "lock" a track to a specific user
+LOCK_THRESHOLD   = 0.65     # similarity to "lock" a track to a specific user
 FACE_SAMPLE_RATE = 5        # try face recognition every N frames of a track
 FACE_UPPER_FRAC  = 0.60     # crop upper 60% of bbox (head + shoulders area)
 DETECT_WIDTH     = 640      # resize for detection (Vision or YOLO)
@@ -392,12 +392,27 @@ class PostAnalyser:
                               tr.track_id, tr.frame_count)
                     continue
                 if tr.embeddings:
+                    # Strategy: check every individual frame embedding AND the
+                    # averaged embedding; keep the highest-confidence match.
+                    # Individual frames: a single clear frontal shot beats a
+                    # blurred average across many profile-view frames.
+                    best_uid, best_sim = None, 0.0
+                    for emb in tr.embeddings:
+                        uid, sim = FaceEmbedder.best_match(emb, db_copy, threshold=0.45)
+                        if uid and sim > best_sim:
+                            best_uid, best_sim = uid, sim
+                    # Averaged embedding (more robust when many similar angles)
                     avg = np.mean(tr.embeddings, axis=0).astype(np.float32)
                     avg /= np.linalg.norm(avg) + 1e-8
                     uid, sim = FaceEmbedder.best_match(avg, db_copy, threshold=0.48)
-                    if uid:
-                        tr.locked_uid = uid
-                        tr.best_sim   = sim
+                    if uid and sim > best_sim:
+                        best_uid, best_sim = uid, sim
+                    if best_uid:
+                        tr.locked_uid = best_uid
+                        tr.best_sim   = best_sim
+                        log.debug("resolved track %d → %s (best sim=%.0f%%  frames=%d)",
+                                  tr.track_id, best_uid, best_sim * 100,
+                                  len(tr.embeddings))
             valid.append(tr)
 
         if not valid:
@@ -413,7 +428,9 @@ class PostAnalyser:
         _annotate_video(video_path, valid, fps)
         self._write_db(video_path, valid, start, end, fps)
         names_str = ", ".join(
-            tr.locked_uid or f"unknown#{tr.track_id}" for tr in valid
+            f"{tr.locked_uid} ({tr.best_sim:.0%})" if tr.locked_uid
+            else f"unknown#{tr.track_id}"
+            for tr in valid
         )
         log.info("[%s] ✓ %s  %d person(s): %s  %.1fs",
                  worker, basename, len(valid), names_str, time.monotonic() - t0)

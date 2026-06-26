@@ -314,12 +314,13 @@ def _analyse_with_yolo(video_path: str,
                     snap_path   = _save_snapshot_inline(img_face, bbox_f, tid, video_tag),
                 )
             tr = tracks[tid]
-            tr.frame_count += 1
+            prev_count      = tr.frame_count
+            tr.frame_count += YOLO_VID_STRIDE   # keep in actual-frame units, same as vision backend
             tr.last_frame   = frame_idx
             # Store at actual video frame index so _annotate_video lookup matches
             tr.frame_bboxes[frame_idx] = bbox_f
 
-            if tr.locked_uid is None and tr.frame_count % FACE_SAMPLE_RATE == 0:
+            if tr.locked_uid is None and tr.frame_count // FACE_SAMPLE_RATE != prev_count // FACE_SAMPLE_RATE:
                 emb, sim, uid = _try_face(img_face, bbox_f, embedder,
                                           db_embeddings, db_lock)
                 if emb is not None:
@@ -684,9 +685,7 @@ def _try_face(img: np.ndarray, bbox: list,
                   cw, ch, det_score, MIN_FACE_SCORE)
         return None, 0.0, None
     log.debug("face accepted  %dx%d crop  det_score=%.2f", cw, ch, det_score)
-    with db_lock:
-        db_copy = list(db_embeddings)
-    uid, sim = FaceEmbedder.best_match(emb, db_copy, threshold=0.48)
+    uid, sim = FaceEmbedder.best_match(emb, db_embeddings, threshold=0.48)
     return emb, sim, uid
 
 
@@ -763,8 +762,8 @@ def _sample_faces(video_path: str, t_in: float, t_out: float,
                 break
             if t >= next_t:
                 img = frame.to_ndarray(format="bgr24")
-                emb = embedder.get_embedding(img)
-                if emb is not None:
+                emb, det_score = embedder.get_embedding_scored(img)
+                if emb is not None and det_score >= MIN_FACE_SCORE:
                     embeddings.append(emb)
                     if len(embeddings) >= n:
                         break

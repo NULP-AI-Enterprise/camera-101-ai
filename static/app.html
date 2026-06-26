@@ -148,6 +148,7 @@ input:focus{outline:none;border-color:var(--accent)}
 .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.btn-sm{padding:5px 10px;font-size:.78rem}
 
 /* ── login overlay ── */
 #login-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
@@ -407,7 +408,7 @@ function showTab(name, btn) {
 
   if (name === 'users')    loadUsers();
   if (name === 'sessions') loadSessions();
-  if (name === 'logs')     startLog('stream');
+  if (name === 'logs')     startLog(_currentLog);
   if (name === 'live')     { startStatusPoll(); startEventsPoll(); }
   if (name !== 'logs' && _logSse) { _logSse.close(); _logSse = null; }
 }
@@ -506,7 +507,7 @@ async function loadUsers() {
   el.innerHTML = users.map(u => `
     <div class="user-card" style="margin-bottom:10px">
       <div class="user-card-head" onclick="toggleUser('u_${esc(u.id)}')">
-        <div class="user-avatar">${esc(u.name[0].toUpperCase())}</div>
+        <div class="user-avatar">${esc((u.name?.[0] || '?').toUpperCase())}</div>
         <div class="user-info">
           <div class="user-name">${esc(u.name)}</div>
           <div class="user-meta">${esc(u.id)} · ${u.embedding_count} embedding(s) · ${u.created_at ? fmtDate(u.created_at) : '—'}</div>
@@ -802,7 +803,7 @@ async function loadSessions() {
     const start  = r.start_time ? fmtDateTime(r.start_time) : '—';
     const dur    = (r.start_time && r.end_time)
       ? durStr(r.start_time, r.end_time) : 'ongoing';
-    const names  = [...new Set(r.events.map(e => e.user_name || e.user_id || 'Unknown'))].join(', ') || '—';
+    const names  = [...new Set(r.events.map(e => esc(e.user_name || e.user_id || 'Unknown')))].join(', ') || '—';
     const snap   = r.events.map(e => {
       const badge = e.user_id
         ? `<div class="snap-label" style="color:var(--green)">${esc(e.user_name || e.user_id)}</div>`
@@ -833,8 +834,8 @@ async function loadSessions() {
     }).join('');
     const video = r.video_exists
       ? `<div style="margin-top:12px"><div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Scene recording</div>
-         <video controls style="width:100%;border-radius:var(--radius);background:#000" src="/video/${r.video_path}"></video>
-         <div style="font-size:.72rem;color:var(--muted);margin-top:4px">${r.video_path}</div></div>`
+         <video controls style="width:100%;border-radius:var(--radius);background:#000" src="/video/${esc(r.video_path)}"></video>
+         <div style="font-size:.72rem;color:var(--muted);margin-top:4px">${esc(r.video_path)}</div></div>`
       : `<div style="color:var(--muted);font-size:.8rem;margin-top:8px">Video file not found</div>`;
     return `<div class="rec-item">
       <div class="rec-head" onclick="toggleRec('rec_${r.id}')">
@@ -965,7 +966,7 @@ function logClass(line) {
 function esc(s) {
   return String(s ?? '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 async function api(method, url, body) {

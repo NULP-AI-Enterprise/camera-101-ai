@@ -192,6 +192,7 @@ def _analyse_with_vision(video_path: str,
     (640, 640) anyway, so full-HD input provides no extra embedding quality.
     Returns (tracks dict, total frame count).
     """
+    video_tag = os.path.splitext(os.path.basename(video_path))[0]
     tracker = IOUTracker(
         iou_threshold        = 0.25,
         max_missed           = 90,
@@ -230,7 +231,7 @@ def _analyse_with_vision(video_path: str,
                     track_id    = tid,
                     first_frame = frame_idx,
                     bbox_first  = list(bbox),
-                    snap_path   = _save_snapshot_inline(img, list(bbox), tid),
+                    snap_path   = _save_snapshot_inline(img, list(bbox), tid, video_tag),
                 )
             tr = tracks[tid]
             tr.frame_count += 1
@@ -264,6 +265,7 @@ def _analyse_with_yolo(video_path: str,
     Face extraction uses a 640-px downscale — InsightFace det_size=(640,640)
     so full-HD input is redundant for embedding quality.
     """
+    video_tag  = os.path.splitext(os.path.basename(video_path))[0]
     model      = _thread_yolo()
     tracks:    dict[int, _Track] = {}
     frame_idx: int               = 0
@@ -304,7 +306,7 @@ def _analyse_with_yolo(video_path: str,
                     track_id    = tid,
                     first_frame = frame_idx,
                     bbox_first  = bbox_f,
-                    snap_path   = _save_snapshot_inline(img_face, bbox_f, tid),
+                    snap_path   = _save_snapshot_inline(img_face, bbox_f, tid, video_tag),
                 )
             tr = tracks[tid]
             tr.frame_count += 1
@@ -678,8 +680,13 @@ def _try_face(img: np.ndarray, bbox: list,
     return emb, sim, uid
 
 
-def _save_snapshot_inline(img: np.ndarray, bbox: list, track_id: int) -> Optional[str]:
-    """Save a person crop during the tracking pass — avoids a third video open."""
+def _save_snapshot_inline(img: np.ndarray, bbox: list, track_id: int,
+                           video_tag: str = "") -> Optional[str]:
+    """Save a person crop during the tracking pass — avoids a third video open.
+
+    video_tag must be unique per video (e.g. the basename without extension)
+    so that snapshots from different recordings never share the same filename.
+    """
     try:
         x1, y1, x2, y2 = bbox
         h, w = img.shape[:2]
@@ -689,7 +696,8 @@ def _save_snapshot_inline(img: np.ndarray, bbox: list, track_id: int) -> Optiona
         if crop.size == 0:
             return None
         os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
-        path = os.path.join(SNAPSHOTS_DIR, f"snap_tid{track_id}_inline.jpg")
+        tag  = video_tag or "unknown"
+        path = os.path.join(SNAPSHOTS_DIR, f"snap_{tag}_tid{track_id}.jpg")
         return path if cv2.imwrite(path, crop) else None
     except Exception as e:
         log.debug("inline snapshot error: %s", e)

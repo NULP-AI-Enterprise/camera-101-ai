@@ -110,7 +110,8 @@ def serve_snapshot(path: str, _=Depends(require_auth)):
     full = _safe(path)
     if not os.path.isfile(full):
         raise HTTPException(404)
-    return FileResponse(full, media_type="image/jpeg")
+    return FileResponse(full, media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store"})
 
 
 @router.get("/video/{path:path}")

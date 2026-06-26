@@ -180,11 +180,11 @@ input:focus{outline:none;border-color:var(--accent)}
 <nav>
   <div class="logo">Camera <span>101</span> AI</div>
   <div class="tabs">
-    <button class="tab active" onclick="showTab('live')">📹 Live</button>
-    <button class="tab" onclick="showTab('users')">👤 Users</button>
-    <button class="tab" onclick="showTab('adduser')">➕ Add User</button>
-    <button class="tab" onclick="showTab('sessions')">📋 Sessions</button>
-    <button class="tab" onclick="showTab('logs')">📜 Logs</button>
+    <button class="tab active" onclick="showTab('live',this)">📹 Live</button>
+    <button class="tab" onclick="showTab('users',this)">👤 Users</button>
+    <button class="tab" onclick="showTab('adduser',this)">➕ Add User</button>
+    <button class="tab" onclick="showTab('sessions',this)">📋 Sessions</button>
+    <button class="tab" onclick="showTab('logs',this)">📜 Logs</button>
   </div>
   <div class="nav-right">
     <button class="logout-btn" onclick="doLogout()">Sign out</button>
@@ -399,11 +399,11 @@ async function doLogin() {
 function doLogout() { location.href = '/logout'; }
 
 // ── tab navigation ────────────────────────────────────────────────────────────
-function showTab(name) {
+function showTab(name, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
+  if (btn) btn.classList.add('active');
 
   if (name === 'users')    loadUsers();
   if (name === 'sessions') loadSessions();
@@ -447,11 +447,18 @@ async function moduleCtrl(mod, action) {
 }
 
 // ── stream image ──────────────────────────────────────────────────────────────
+let _streamRetry = null;
 function streamError() {
   document.getElementById('stream-img').style.display = 'none';
   document.getElementById('stream-placeholder').style.display = 'flex';
+  // Retry every 5 s — stream restarts when Module A comes back up
+  if (!_streamRetry) _streamRetry = setInterval(() => {
+    const img = document.getElementById('stream-img');
+    img.src = '/stream?' + Date.now();   // cache-bust so browser re-fetches
+  }, 5000);
 }
 function streamOk() {
+  if (_streamRetry) { clearInterval(_streamRetry); _streamRetry = null; }
   document.getElementById('stream-img').style.display = 'block';
   document.getElementById('stream-placeholder').style.display = 'none';
 }
@@ -488,6 +495,8 @@ async function loadLiveEvents() {
 }
 
 // ── users ─────────────────────────────────────────────────────────────────────
+const _camStreams = {};   // uid → MediaStream
+
 async function loadUsers() {
   const el = document.getElementById('users-list');
   el.innerHTML = '<div class="empty">Loading…</div>';
@@ -496,26 +505,26 @@ async function loadUsers() {
   if (!users.length) { el.innerHTML = '<div class="empty">No users yet. Go to <b>Add User</b> to register someone.</div>'; return; }
   el.innerHTML = users.map(u => `
     <div class="user-card" style="margin-bottom:10px">
-      <div class="user-card-head" onclick="toggleUser('u_${u.id}')">
-        <div class="user-avatar">${u.name[0].toUpperCase()}</div>
+      <div class="user-card-head" onclick="toggleUser('u_${esc(u.id)}')">
+        <div class="user-avatar">${esc(u.name[0].toUpperCase())}</div>
         <div class="user-info">
-          <div class="user-name">${u.name}</div>
-          <div class="user-meta">${u.id} · ${u.embedding_count} embedding(s) · ${u.created_at ? fmtDate(u.created_at) : '—'}</div>
+          <div class="user-name">${esc(u.name)}</div>
+          <div class="user-meta">${esc(u.id)} · ${u.embedding_count} embedding(s) · ${u.created_at ? fmtDate(u.created_at) : '—'}</div>
         </div>
         <span style="color:var(--muted);margin-left:8px">›</span>
       </div>
-      <div class="user-body" id="u_${u.id}">
+      <div class="user-body" id="u_${esc(u.id)}">
         <div style="margin-top:12px">
           <div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Add face angle</div>
-          <video id="cam_${u.id}" class="webcam-preview" autoplay muted playsinline style="display:none"></video>
-          <canvas id="cv_${u.id}" style="display:none"></canvas>
+          <video id="cam_${esc(u.id)}" class="webcam-preview" autoplay muted playsinline style="display:none"></video>
+          <canvas id="cv_${esc(u.id)}" style="display:none"></canvas>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost" onclick="startCam('${u.id}')">📷 Camera</button>
-            <button class="btn btn-success" id="cap_${u.id}" style="display:none" onclick="captureCam('${u.id}')">📸 Capture</button>
-            <label class="btn btn-ghost" style="cursor:pointer">🖼 Upload photo<input type="file" accept="image/*" style="display:none" onchange="uploadFaceFile('${u.id}',this)"></label>
-            <button class="btn btn-danger" onclick="deleteUser('${u.id}', '${u.name}')">🗑 Delete</button>
+            <button class="btn btn-ghost" onclick="startCam('${esc(u.id)}')">📷 Camera</button>
+            <button class="btn btn-success" id="cap_${esc(u.id)}" style="display:none" onclick="captureCam('${esc(u.id)}')">📸 Capture</button>
+            <label class="btn btn-ghost" style="cursor:pointer">🖼 Upload photo<input type="file" accept="image/*" style="display:none" onchange="uploadFaceFile('${esc(u.id)}',this)"></label>
+            <button class="btn btn-danger" onclick="deleteUser('${esc(u.id)}', '${esc(u.name)}')">🗑 Delete</button>
           </div>
-          <div id="msg_${u.id}" style="margin-top:8px;font-size:.82rem"></div>
+          <div id="msg_${esc(u.id)}" style="margin-top:8px;font-size:.82rem"></div>
         </div>
       </div>
     </div>`).join('');
@@ -523,19 +532,38 @@ async function loadUsers() {
 
 function toggleUser(id) {
   const el = document.getElementById(id);
+  const opening = !el.classList.contains('open');
+  if (!opening) {
+    // Stop any running camera when collapsing the card
+    const uid = id.replace(/^u_/, '');
+    stopCam(uid);
+  }
   el.classList.toggle('open');
 }
 
 async function startCam(uid) {
+  stopCam(uid);   // stop any previous stream for this slot first
   const video = document.getElementById(`cam_${uid}`);
   try {
     const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    _camStreams[uid] = stream;
     video.srcObject = stream;
     video.style.display = 'block';
     document.getElementById(`cap_${uid}`).style.display = 'inline-flex';
   } catch(e) {
     document.getElementById(`msg_${uid}`).innerHTML = `<span style="color:var(--red)">Camera access denied</span>`;
   }
+}
+
+function stopCam(uid) {
+  if (_camStreams[uid]) {
+    _camStreams[uid].getTracks().forEach(t => t.stop());
+    delete _camStreams[uid];
+  }
+  const video = document.getElementById(`cam_${uid}`);
+  if (video) { video.srcObject = null; video.style.display = 'none'; }
+  const cap = document.getElementById(`cap_${uid}`);
+  if (cap) cap.style.display = 'none';
 }
 
 async function captureCam(uid) {
@@ -587,7 +615,7 @@ async function uploadFaceFile(uid, input) {
 
 async function deleteUser(uid, name) {
   if (!confirm(`Delete user "${name}"? This removes all their face data.`)) return;
-  await api('DELETE', `/api/users/${uid}`);
+  await api('DELETE', `/api/users/${encodeURIComponent(uid)}`);
   loadUsers();
 }
 
@@ -777,7 +805,7 @@ async function loadSessions() {
     const names  = [...new Set(r.events.map(e => e.user_name || e.user_id || 'Unknown'))].join(', ') || '—';
     const snap   = r.events.map(e => {
       const badge = e.user_id
-        ? `<div class="snap-label" style="color:var(--green)">${e.user_name || e.user_id}</div>`
+        ? `<div class="snap-label" style="color:var(--green)">${esc(e.user_name || e.user_id)}</div>`
         : `<div class="snap-label" style="color:var(--orange)">Unknown</div>`;
       const t = (e.first_seen && e.last_seen)
         ? `${fmtTime(e.first_seen)} – ${fmtTime(e.last_seen)}` : '';
@@ -787,13 +815,14 @@ async function loadSessions() {
         ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">
              <select id="asgn_${e.id}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 5px;font-size:.7rem;width:140px">
                <option value="">— link to user —</option>
-               ${_sessionUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+               ${_sessionUsers.map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}
              </select>
              <button class="btn btn-success" style="font-size:.7rem;padding:3px 8px" onclick="assignEventUser(${e.id},this)">✓ Link &amp; Save Face</button>
            </div>` : '';
       if (e.snapshot_exists) {
+        // ?v= cache-bust: ensures browser always fetches the current file on page load
         return `<div class="snap-card">
-          <img src="/snapshot/${e.snapshot_path}" loading="lazy" alt="">
+          <img src="/snapshot/${esc(e.snapshot_path)}?v=${e.id}" loading="lazy" alt="">
           ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}
         </div>`;
       }
@@ -861,6 +890,7 @@ async function reanalyseOne(eventId, btn) {
     const r = await api('POST', `/api/events/${eventId}/reanalyse`);
     btn.textContent = r.user_name ? `✓ ${r.user_name}` : '✓ Unknown';
     btn.style.color = r.user_id ? 'var(--green)' : 'var(--orange)';
+    setTimeout(loadSessions, 800);   // refresh so the card shows updated name/badge
   } catch(e) {
     btn.textContent = '✗ Error';
     btn.disabled = false;
@@ -932,6 +962,12 @@ function logClass(line) {
 }
 
 // ── utils ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 async function api(method, url, body) {
   const r = await fetch(url, {method, body});
   if (r.status === 401) { location.href = '/'; return; }

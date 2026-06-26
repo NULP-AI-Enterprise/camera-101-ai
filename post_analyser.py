@@ -23,7 +23,6 @@ Run standalone:
 """
 from __future__ import annotations
 
-import concurrent.futures
 import datetime
 import os
 import signal
@@ -46,7 +45,10 @@ log = get_logger("analyser", "analyser.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RAW_EVENTS_DIR   = "raw_events"
-ANALYSER_WORKERS = int(os.environ.get("ANALYSER_WORKERS", "1"))
+MIN_WORKERS        = int(os.environ.get("ANALYSER_MIN_WORKERS", "1"))
+MAX_WORKERS        = int(os.environ.get("ANALYSER_WORKERS",     "3"))
+SCALE_UP_THRESHOLD = int(os.environ.get("SCALE_UP_THRESHOLD",  "2"))
+WORKER_IDLE_SECS   = float(os.environ.get("WORKER_IDLE_SECS",  "180"))
 SNAPSHOTS_DIR    = "snapshots"
 PID_FILE         = "analyser.pid"
 POLL_INTERVAL    = 2.0      # seconds between folder scans
@@ -719,12 +721,75 @@ def _extract_snapshot(video_path: str, tr: _Track, rec_id: int) -> Optional[str]
     return None
 
 
+# ── auto-scaling thread pool ──────────────────────────────────────────────────
+
+class _DynamicPool:
+    """
+    Thread pool that starts with min_workers and scales up to max_workers
+    when the pending queue depth reaches scale_threshold.
+    Excess workers self-terminate after idle_secs of inactivity.
+    """
+
+    def __init__(self, min_workers: int, max_workers: int,
+                 scale_threshold: int, idle_secs: float) -> None:
+        self._min       = min_workers
+        self._max       = max_workers
+        self._threshold = scale_threshold
+        self._idle      = idle_secs
+        self._q: queue.Queue   = queue.Queue()
+        self._lock              = threading.Lock()
+        self._n_workers: int    = 0
+        for _ in range(min_workers):
+            self._spawn()
+
+    @property
+    def n_workers(self) -> int:
+        return self._n_workers
+
+    def submit(self, fn, *args) -> None:
+        self._q.put((fn, args))
+        with self._lock:
+            if self._q.qsize() >= self._threshold and self._n_workers < self._max:
+                self._spawn()
+                log.info("analyser: queue depth %d → scaling up to %d/%d workers",
+                         self._q.qsize(), self._n_workers, self._max)
+
+    def shutdown(self, **_) -> None:
+        pass  # worker threads are daemon threads — exit with the process
+
+    def _spawn(self) -> None:
+        idx = self._n_workers
+        self._n_workers += 1
+        name = f"analyser_{idx}"
+        threading.Thread(target=self._run, args=(name,),
+                         daemon=True, name=name).start()
+
+    def _run(self, name: str) -> None:
+        while True:
+            try:
+                fn, args = self._q.get(timeout=self._idle)
+            except queue.Empty:
+                with self._lock:
+                    if self._n_workers > self._min:
+                        self._n_workers -= 1
+                        log.info("analyser: worker %s idle → scaled down to %d/%d workers",
+                                 name, self._n_workers, self._max)
+                        return
+                continue  # minimum worker — keep waiting
+            try:
+                fn(*args)
+            except Exception as e:
+                log.error("pool worker %s: %s", name, e)
+            finally:
+                self._q.task_done()
+
+
 # ── daemon watcher ────────────────────────────────────────────────────────────
 
 class AnalyserDaemon:
     """
     Polls raw_events/ every POLL_INTERVAL seconds and dispatches videos to a
-    thread pool so ANALYSER_WORKERS videos are analysed concurrently.
+    thread pool that auto-scales from MIN_WORKERS to MAX_WORKERS.
     Each worker thread owns its own FaceEmbedder + YOLO instance.
     """
 
@@ -732,16 +797,18 @@ class AnalyserDaemon:
         self._stop_event = threading.Event()
         self._processing: set[str] = set()
         self._lock       = threading.Lock()
-        self._pool       = concurrent.futures.ThreadPoolExecutor(
-            max_workers=ANALYSER_WORKERS,
-            thread_name_prefix="analyser",
+        self._pool       = _DynamicPool(
+            min_workers=MIN_WORKERS,
+            max_workers=MAX_WORKERS,
+            scale_threshold=SCALE_UP_THRESHOLD,
+            idle_secs=WORKER_IDLE_SECS,
         )
 
     def run_forever(self) -> None:
         os.makedirs(RAW_EVENTS_DIR, exist_ok=True)
-        log.info("watching %s/  (poll %.1fs  workers=%d  max_age=%.0fh)",
-                 RAW_EVENTS_DIR, POLL_INTERVAL, ANALYSER_WORKERS,
-                 RAW_EVENTS_MAX_AGE_HOURS)
+        log.info("watching %s/  (poll %.1fs  workers=%d..%d  scale_at=%d  max_age=%.0fh)",
+                 RAW_EVENTS_DIR, POLL_INTERVAL, MIN_WORKERS, MAX_WORKERS,
+                 SCALE_UP_THRESHOLD, RAW_EVENTS_MAX_AGE_HOURS)
         while not self._stop_event.is_set():
             self._scan()
             self._cleanup_old_files()
@@ -779,7 +846,9 @@ class AnalyserDaemon:
                 self._processing.add(video)
 
             n = len(self._processing)
-            log.info("▶ %s  (active: %d/%d)", os.path.basename(video), n, ANALYSER_WORKERS)
+            log.info("▶ %s  (queued: %d  workers: %d/%d)",
+                     os.path.basename(video), n,
+                     self._pool.n_workers, MAX_WORKERS)
             self._pool.submit(self._worker, video)
 
     def _cleanup_old_files(self) -> None:
@@ -869,7 +938,8 @@ def main():
     signal.signal(signal.SIGTERM, _sig)
     signal.signal(signal.SIGINT,  _sig)
 
-    log.info("startup  pid=%d  workers=%d", os.getpid(), ANALYSER_WORKERS)
+    log.info("startup  pid=%d  workers=%d..%d  scale_at=%d",
+             os.getpid(), MIN_WORKERS, MAX_WORKERS, SCALE_UP_THRESHOLD)
     # Models are loaded lazily by each worker thread on first video.
 
     daemon = AnalyserDaemon()

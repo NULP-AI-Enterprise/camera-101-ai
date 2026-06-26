@@ -41,13 +41,24 @@ class FaceEmbedder:
         Detect faces in img_bgr and return a normalized 512-dim ArcFace
         embedding for the largest detected face, or None if no face found.
         """
+        emb, _ = self.get_embedding_scored(img_bgr)
+        return emb
+
+    def get_embedding_scored(self, img_bgr: np.ndarray) -> tuple[np.ndarray | None, float]:
+        """
+        Like get_embedding but also returns InsightFace det_score (0–1).
+        det_score reflects how confidently InsightFace found a face — use it
+        to skip blurry / angled frames rather than accumulating low-quality embeddings.
+        Returns (embedding, det_score); embedding is None if no face detected.
+        """
         faces = self._app.get(img_bgr)
         if not faces:
-            return None
+            return None, 0.0
         face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
         emb  = face.embedding.astype(np.float32)
         norm = np.linalg.norm(emb)
-        return emb / norm if norm > 0 else emb
+        emb  = emb / norm if norm > 0 else emb
+        return emb, float(getattr(face, "det_score", 1.0))
 
     def get_all_embeddings(self, img_bgr: np.ndarray) -> list[np.ndarray]:
         """Return normalized embeddings for ALL detected faces (used in admin panel)."""

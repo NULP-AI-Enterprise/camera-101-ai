@@ -57,7 +57,10 @@ MIN_TRACK_FRAMES = 20       # tracks shorter than this with no face → false po
 LOCK_THRESHOLD   = 0.65     # similarity to "lock" a track to a specific user
 FACE_SAMPLE_RATE = 5        # try face recognition every N frames of a track
 FACE_UPPER_FRAC  = 0.60     # crop upper 60% of bbox (head + shoulders area)
+MIN_FACE_SCORE   = 0.68     # InsightFace det_score gate — skip blurry/angled frames
 DETECT_WIDTH     = 640      # resize for detection (Vision or YOLO)
+YOLO_IMGSZ       = 640      # YOLO inference resolution (native would be 1920 → 8x slower)
+YOLO_VID_STRIDE  = 2        # process every Nth frame — halves YOLO workload
 BODY_CONF_THRESH = 0.40     # Vision body confidence gate
 DETECT_EVERY     = 5        # run body detector every N frames (interpolate in between)
 RAW_EVENTS_MAX_AGE_HOURS  = float(os.environ.get("RAW_EVENTS_MAX_AGE_HOURS",  "24"))
@@ -272,16 +275,18 @@ def _analyse_with_yolo(video_path: str,
     cfg = _TRACKER_CFG if os.path.exists(_TRACKER_CFG) else "bytetrack.yaml"
 
     for result in model.track(
-        source  = video_path,
-        stream  = True,
-        persist = True,
-        tracker = cfg,
-        classes = [0],
-        conf    = 0.4,
-        verbose = False,
+        source     = video_path,
+        stream     = True,
+        persist    = True,
+        tracker    = cfg,
+        classes    = [0],
+        conf       = 0.4,
+        imgsz      = YOLO_IMGSZ,      # detect at 640p — ~6x faster than native HD on CPU
+        vid_stride = YOLO_VID_STRIDE,  # skip every other frame — 2x faster, fine at 12.5fps
+        verbose    = False,
     ):
         if result.boxes is None or result.boxes.id is None:
-            frame_idx += 1
+            frame_idx += YOLO_VID_STRIDE   # each result = vid_stride actual frames
             continue
 
         img_orig = result.orig_img
@@ -298,7 +303,7 @@ def _analyse_with_yolo(video_path: str,
 
         for track_id, bbox in zip(ids, bboxes):
             tid = int(track_id)
-            # Scale bbox to face-frame coordinates
+            # Scale bbox to 640p coordinate space for face extraction
             bbox_f = [int(bbox[0]*scale), int(bbox[1]*scale),
                       int(bbox[2]*scale), int(bbox[3]*scale)]
             if tid not in tracks:
@@ -311,6 +316,7 @@ def _analyse_with_yolo(video_path: str,
             tr = tracks[tid]
             tr.frame_count += 1
             tr.last_frame   = frame_idx
+            # Store at actual video frame index so _annotate_video lookup matches
             tr.frame_bboxes[frame_idx] = bbox_f
 
             if tr.locked_uid is None and tr.frame_count % FACE_SAMPLE_RATE == 0:
@@ -323,7 +329,7 @@ def _analyse_with_yolo(video_path: str,
                         tr.best_sim   = sim
                         log.info("LOCKED track %d → %s  sim=%.2f", tid, uid, sim)
 
-        frame_idx += 1
+        frame_idx += YOLO_VID_STRIDE   # advance by stride so timestamps stay correct
 
     return tracks, frame_idx
 
@@ -652,8 +658,8 @@ def _try_face(img: np.ndarray, bbox: list,
 
     Only the upper FACE_UPPER_FRAC of the detected body bbox is passed to
     InsightFace — focuses on head/shoulder and avoids confusing the detector
-    with torso texture.  InsightFace det_size=(640,640) so we cap at
-    DETECT_WIDTH px; full-HD crops are discarded internally anyway.
+    with torso texture.  Frames where InsightFace det_score < MIN_FACE_SCORE
+    are discarded so only clear, frontal captures contribute to the embedding.
     """
     x1, y1, x2, y2 = bbox
     h_box = y2 - y1
@@ -668,12 +674,16 @@ def _try_face(img: np.ndarray, bbox: list,
         crop = cv2.resize(crop, (DETECT_WIDTH, int(ch * DETECT_WIDTH / cw)),
                           interpolation=cv2.INTER_AREA)
         ch, cw = crop.shape[:2]
-    emb = embedder.get_embedding(crop)
+    emb, det_score = embedder.get_embedding_scored(crop)
     if emb is None:
         log.debug("no face in %dx%d crop (bbox y=%d–%d x=%d–%d)",
                   cw, ch, y1, face_y2, x1, x2)
         return None, 0.0, None
-    log.debug("face found in %dx%d crop", cw, ch)
+    if det_score < MIN_FACE_SCORE:
+        log.debug("face quality too low in %dx%d crop  det_score=%.2f < %.2f",
+                  cw, ch, det_score, MIN_FACE_SCORE)
+        return None, 0.0, None
+    log.debug("face accepted  %dx%d crop  det_score=%.2f", cw, ch, det_score)
     with db_lock:
         db_copy = list(db_embeddings)
     uid, sim = FaceEmbedder.best_match(emb, db_copy, threshold=0.48)

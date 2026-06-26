@@ -47,7 +47,7 @@ spec:
         # ── Module A + B + Admin UI ─────────────────────────────────────────
         - name: people-recognition
           # CI workflow pins this tag on every push to main
-          image: ghcr.io/nulp-ai-enterprise/people-recognition:sha-c1cfe39
+          image: ghcr.io/nulp-ai-enterprise/people-recognition:sha-a6a9e8c
           imagePullPolicy: Always
           ports:
             - name: http

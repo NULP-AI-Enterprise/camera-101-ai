@@ -673,7 +673,7 @@ elif page == "➕ Add User":
                                 db.add(User(
                                     id         = st.session_state.fid_uid,
                                     name       = st.session_state.fid_name,
-                                    created_at = datetime.datetime.utcnow(),
+                                    created_at = datetime.datetime.now(datetime.timezone.utc),
                                 ))
                                 for e in st.session_state.fid_embeddings:
                                     db.add(UserFeature(

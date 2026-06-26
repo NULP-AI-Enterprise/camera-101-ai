@@ -17,73 +17,27 @@ from __future__ import annotations
 
 import datetime
 import os
-import queue
 import threading
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
-import av
 import cv2
 import numpy as np
 
 from db import get_session, Recording, PersonEvent
+from log_setup import get_logger
+from video_writer import AsyncVideoWriter
 
 if TYPE_CHECKING:
     from video_analyser import VideoAnalyser
+
+log = get_logger("scene_recorder", "scene_recorder.log")
 
 RECORDINGS_DIR   = "recordings"
 SNAPSHOTS_DIR    = "snapshots"
 PERSON_COOLDOWN  = 3.0    # seconds: brief occlusion grace period (spec: 2–3 s)
 SCENE_COOLDOWN   = 5.0    # seconds: after last person leaves before closing file
 MIN_SCENE_SEC    = 2.0    # discard recordings shorter than this
-ENCODE_QUEUE_MAX = 150
-
-
-# ── async H.264 writer ────────────────────────────────────────────────────────
-
-class AsyncVideoWriter:
-    def __init__(self, filename: str, fps: float, w: int, h: int):
-        self.filename = filename
-        self.dropped  = 0
-        self._q: queue.Queue = queue.Queue(maxsize=ENCODE_QUEUE_MAX)
-        self._done    = threading.Event()
-        threading.Thread(
-            target=self._encode_loop, args=(filename, fps, w, h),
-            daemon=True, name=f"enc-{os.path.basename(filename)}",
-        ).start()
-
-    def write(self, frame_bgr: np.ndarray) -> None:
-        try:
-            self._q.put_nowait(frame_bgr)
-        except queue.Full:
-            self.dropped += 1
-
-    def close(self, timeout: float = 30.0) -> None:
-        self._q.put(None)
-        self._done.wait(timeout=timeout)
-
-    def _encode_loop(self, filename: str, fps: float, w: int, h: int) -> None:
-        try:
-            out    = av.open(filename, mode="w")
-            stream = out.add_stream("h264", rate=int(fps))
-            stream.width   = w
-            stream.height  = h
-            stream.pix_fmt = "yuv420p"
-            stream.options = {"crf": "23", "preset": "ultrafast", "tune": "zerolatency"}
-            while True:
-                item = self._q.get()
-                if item is None:
-                    break
-                vf = av.VideoFrame.from_ndarray(item[:, :, ::-1], format="rgb24")
-                for pkt in stream.encode(vf.reformat(format="yuv420p")):
-                    out.mux(pkt)
-            for pkt in stream.encode():
-                out.mux(pkt)
-            out.close()
-        except Exception as e:
-            print(f"[AsyncVideoWriter] error: {e}")
-        finally:
-            self._done.set()
 
 
 # ── per-person state ──────────────────────────────────────────────────────────
@@ -201,8 +155,8 @@ class SceneRecorder:
                 db.flush()
                 self._recording_id = rec.id
         except Exception as e:
-            print(f"[SceneRecorder] DB error opening scene: {e}")
-        print(f"[SceneRecorder] SCENE START → {path}")
+            log.error("DB error opening scene: %s", e)
+        log.info("SCENE START → %s", path)
 
     def _add_person(self, track_id: int, frame: np.ndarray,
                     bbox: list[int], now: datetime.datetime) -> None:
@@ -219,12 +173,12 @@ class SceneRecorder:
                 db.flush()
                 event_id = ev.id
         except Exception as e:
-            print(f"[SceneRecorder] DB error adding person: {e}")
+            log.error("DB error adding person: %s", e)
             return
         ps = _PersonState(event_id=event_id, first_seen=now, last_seen=now)
         self._persons[track_id] = ps
         self._save_snapshot(ps, frame, bbox, track_id)
-        print(f"[SceneRecorder] person tid={track_id} → event #{event_id}")
+        log.info("person tid=%d → event #%d", track_id, event_id)
 
     def _save_snapshot(self, ps: _PersonState, frame: np.ndarray,
                        bbox: list[int], track_id: int) -> None:
@@ -249,7 +203,7 @@ class SceneRecorder:
                 if ev:
                     ev.snapshot_path = path
         except Exception as e:
-            print(f"[SceneRecorder] snapshot DB error: {e}")
+            log.error("snapshot DB error: %s", e)
 
     def _expire_person(self, track_id: int) -> None:
         with self._lock:
@@ -266,8 +220,8 @@ class SceneRecorder:
                     if ev:
                         ev.last_seen = now
             except Exception as e:
-                print(f"[SceneRecorder] DB error expiring person: {e}")
-            print(f"[SceneRecorder] person tid={track_id} left")
+                log.error("DB error expiring person: %s", e)
+            log.info("person tid=%d left", track_id)
 
             # If no active persons remain, start the scene cooldown
             if not any(p.active for p in self._persons.values()):
@@ -289,16 +243,16 @@ class SceneRecorder:
 
         self._writer.close()
         if self._writer.dropped:
-            print(f"[SceneRecorder] dropped {self._writer.dropped} encoded frames")
+            log.warning("dropped %d encoded frames", self._writer.dropped)
         self._writer = None
 
         if duration < MIN_SCENE_SEC:
             self._discard_scene()
-            print(f"[SceneRecorder] SCENE DISCARDED ({duration:.1f}s too short)")
+            log.info("SCENE DISCARDED (%.1fs too short)", duration)
         else:
             self._finalise_scene(now)
-            print(f"[SceneRecorder] SCENE STOP → {self._video_path} "
-                  f"({duration:.1f}s, {len(self._persons)} person(s))")
+            log.info("SCENE STOP → %s (%.1fs, %d person(s))",
+                     self._video_path, duration, len(self._persons))
 
         self._recording_id = None
         self._scene_start  = None
@@ -317,7 +271,7 @@ class SceneRecorder:
                     if rec:
                         db.delete(rec)
         except Exception as e:
-            print(f"[SceneRecorder] discard DB error: {e}")
+            log.error("discard DB error: %s", e)
         if self._video_path and os.path.exists(self._video_path):
             try:
                 os.remove(self._video_path)
@@ -342,7 +296,7 @@ class SceneRecorder:
                     if ev and not ev.last_seen:
                         ev.last_seen = now
         except Exception as e:
-            print(f"[SceneRecorder] finalise DB error: {e}")
+            log.error("finalise DB error: %s", e)
 
         if self._analyser and self._recording_id and self._video_path:
             events_payload = [

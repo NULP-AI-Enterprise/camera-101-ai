@@ -15,6 +15,7 @@ onnxruntime>=1.17
 # ── Person detection (YOLO — depends on torch installed above) ─────────────────
 ultralytics>=8.2
 lapx>=0.5.5      # ByteTrack linear assignment (provides `import lap` compat)
+scipy>=1.11      # Hungarian assignment (linear_sum_assignment) for IOUTracker
 
 # ── Database ──────────────────────────────────────────────────────────────────
 sqlalchemy>=2.0

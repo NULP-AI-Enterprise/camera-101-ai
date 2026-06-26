@@ -17,7 +17,7 @@ class FaceEmbedder:
     Switch to 'buffalo_l' for higher accuracy at the cost of speed.
     """
 
-    MODEL_NAME = "buffalo_s"  # buffalo_s | buffalo_m | buffalo_l
+    MODEL_NAME = "buffalo_l"  # buffalo_s | buffalo_m | buffalo_l
 
     def __init__(self):
         from insightface.app import FaceAnalysis

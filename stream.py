@@ -23,6 +23,7 @@ import cv2
 import numpy as np
 
 from log_setup import get_logger
+from video_writer import AsyncVideoWriter
 
 log = get_logger("recorder", "stream.log")
 
@@ -40,17 +41,16 @@ def _masked_url(url: str) -> str:
     except Exception:
         pass
     return url
-STREAM_FPS       = 25.0
-DETECT_WIDTH     = 480          # width for MOG2 processing (saves CPU)
-MIN_MOTION_PX    = 2000         # changed-pixel threshold (~human-sized motion)
-COOLDOWN_SECS    = 5.0          # silence before closing a recording
+STREAM_FPS        = 25.0
+DETECT_WIDTH      = 480          # width for MOG2 processing (saves CPU)
+MIN_MOTION_FRAC   = 0.009        # changed-pixel threshold as fraction of frame area (~human-sized motion at 480p)
+COOLDOWN_SECS     = 5.0          # silence before closing a recording
 MIN_RECORD_SECS  = 1.0          # discard clips shorter than this
 PREVIEW_EVERY    = 5            # write preview JPEG every N frames
 RAW_EVENTS_DIR   = "raw_events"
 PREVIEW_PATH     = "stream_preview.jpg"
 PREVIEW_TMP      = "stream_preview.tmp.jpg"   # must end in .jpg for OpenCV codec detection
 PID_FILE         = "stream.pid"
-ENCODE_QUEUE_MAX = 150
 LOG_FPS_EVERY    = 300          # log live FPS every N frames
 
 # ── shutdown event — set by SIGTERM / SIGINT ──────────────────────────────────
@@ -62,54 +62,6 @@ def _handle_stop(sig, frame):          # noqa: ARG001
 
 signal.signal(signal.SIGTERM, _handle_stop)
 signal.signal(signal.SIGINT,  _handle_stop)
-
-
-# ── async H.264 writer ────────────────────────────────────────────────────────
-
-class AsyncVideoWriter:
-    """Encodes BGR frames to H.264/MP4 in a background thread."""
-
-    def __init__(self, filename: str, fps: float, w: int, h: int):
-        self.filename = filename
-        self.dropped  = 0
-        self._q: queue.Queue = queue.Queue(maxsize=ENCODE_QUEUE_MAX)
-        self._done    = threading.Event()
-        threading.Thread(
-            target=self._run, args=(filename, fps, w, h),
-            daemon=True, name=f"enc-{os.path.basename(filename)}",
-        ).start()
-
-    def write(self, frame_bgr: np.ndarray) -> None:
-        try:
-            self._q.put_nowait(frame_bgr)
-        except queue.Full:
-            self.dropped += 1
-
-    def close(self, timeout: float = 30.0) -> bool:
-        """Signal end-of-stream. Returns True if flushed cleanly, False if timed out."""
-        self._q.put(None)
-        return self._done.wait(timeout=timeout)
-
-    def _run(self, filename: str, fps: float, w: int, h: int) -> None:
-        try:
-            out    = av.open(filename, mode="w")
-            stream = out.add_stream("h264", rate=int(fps))
-            stream.width, stream.height, stream.pix_fmt = w, h, "yuv420p"
-            stream.options = {"crf": "23", "preset": "ultrafast", "tune": "zerolatency"}
-            while True:
-                item = self._q.get()
-                if item is None:
-                    break
-                vf = av.VideoFrame.from_ndarray(item[:, :, ::-1], format="rgb24")
-                for pkt in stream.encode(vf.reformat(format="yuv420p")):
-                    out.mux(pkt)
-            for pkt in stream.encode():
-                out.mux(pkt)
-            out.close()
-        except Exception as e:
-            log.error("encoder: %s", e)
-        finally:
-            self._done.set()
 
 
 # ── RTSP decoder — drops stale frames, respects _shutdown ────────────────────
@@ -162,6 +114,7 @@ class MotionRecorder:
         self._mog2     = cv2.createBackgroundSubtractorMOG2(
             history=500, varThreshold=25, detectShadows=False
         )
+        self._morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         self._writer:    AsyncVideoWriter | None  = None
         self._rec_start: datetime.datetime | None = None
         self._rec_path:  str | None               = None
@@ -175,11 +128,13 @@ class MotionRecorder:
         Returns True while recording.
         """
         mask      = self._mog2.apply(small)
+        mask      = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self._morph_kernel)
         motion_px = cv2.countNonZero(mask)
+        threshold = int(small.shape[0] * small.shape[1] * MIN_MOTION_FRAC)
         now_mono  = time.monotonic()
         now_wall  = datetime.datetime.now()
 
-        if motion_px >= MIN_MOTION_PX:
+        if motion_px >= threshold:
             self._last_motion = now_mono
             if not self._recording:
                 self._start(frame, now_wall)

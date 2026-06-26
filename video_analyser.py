@@ -20,6 +20,9 @@ import numpy as np
 
 from db import get_session, PersonEvent
 from embeddings import FaceEmbedder
+from log_setup import get_logger
+
+log = get_logger("video_analyser", "analyser.log")
 
 SAMPLE_FRAMES       = 15   # face samples per person per pass
 SAMPLE_FRAMES_RETRY = 40   # denser retry when first pass finds nothing
@@ -45,8 +48,8 @@ class VideoAnalyser:
                scene_start: datetime.datetime, events: list[dict]) -> None:
         """Queue a completed recording for background recognition."""
         self._q.put((recording_id, video_path, scene_start, events))
-        print(f"[Analyser] queued recording #{recording_id} "
-              f"({len(events)} person(s)) → {video_path}")
+        log.info("queued recording #%d (%d person(s)) → %s",
+                 recording_id, len(events), video_path)
 
     def reload_db(self, embeddings: list) -> None:
         with self._db_lock:
@@ -73,7 +76,7 @@ class VideoAnalyser:
         self._q.put(None)
         self._thread.join(timeout=3.0)
         if self._thread.is_alive():
-            print("[Analyser] stop_now: worker still alive after 3 s (daemon — will die with process)")
+            log.warning("stop_now: worker still alive after 3 s (daemon — will die with process)")
 
     # ── synchronous API for admin re-analysis ─────────────────────────────────
 
@@ -105,19 +108,18 @@ class VideoAnalyser:
             try:
                 self._analyse_recording(recording_id, video_path, scene_start, events)
             except Exception as e:
-                print(f"[Analyser] error on recording #{recording_id}: {e}")
+                log.error("error on recording #%d: %s", recording_id, e)
 
     def _analyse_recording(self, recording_id: int, video_path: str,
                             scene_start: datetime.datetime,
                             events: list[dict]) -> None:
-        print(f"[Analyser] analysing recording #{recording_id} "
-              f"({len(events)} person(s))…")
+        log.info("analysing recording #%d (%d person(s))…", recording_id, len(events))
 
         with self._db_lock:
             db_copy = list(self._db)
 
         if not db_copy:
-            print(f"[Analyser] no registered users — marking all unknown")
+            log.warning("no registered users — marking all unknown")
             for ev in events:
                 self._write_result(ev["event_id"], None)
             return
@@ -128,19 +130,19 @@ class VideoAnalyser:
 
             embeddings = self._sample_window(video_path, t_in, t_out, SAMPLE_FRAMES)
             if not embeddings:
-                print(f"[Analyser] event #{ev['event_id']} tid={ev['track_id']}: "
-                      f"no faces on first pass, retrying…")
+                log.debug("event #%d tid=%d: no faces on first pass, retrying…",
+                          ev["event_id"], ev["track_id"])
                 embeddings = self._sample_window(
                     video_path, t_in, t_out, SAMPLE_FRAMES_RETRY)
 
             if not embeddings:
-                print(f"[Analyser] event #{ev['event_id']} tid={ev['track_id']}: no faces")
+                log.info("event #%d tid=%d: no faces", ev["event_id"], ev["track_id"])
                 self._write_result(ev["event_id"], None)
                 continue
 
             uid = self._identify(embeddings, db_copy)
-            print(f"[Analyser] event #{ev['event_id']} tid={ev['track_id']} "
-                  f"→ {uid}  ({len(embeddings)} faces)")
+            log.info("event #%d tid=%d → %s  (%d faces)",
+                     ev["event_id"], ev["track_id"], uid, len(embeddings))
             self._write_result(ev["event_id"], uid)
 
     # ── helpers ───────────────────────────────────────────────────────────────
@@ -182,7 +184,7 @@ class VideoAnalyser:
 
             container.close()
         except Exception as e:
-            print(f"[Analyser] window sample error: {e}")
+            log.error("window sample error: %s", e)
 
         return embeddings
 
@@ -205,4 +207,4 @@ class VideoAnalyser:
                 if ev:
                     ev.user_id = user_id
         except Exception as e:
-            print(f"[Analyser] DB write error: {e}")
+            log.error("DB write error: %s", e)

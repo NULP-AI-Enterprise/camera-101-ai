@@ -1,13 +1,20 @@
 from contextlib import contextmanager
-from sqlalchemy import create_engine, Column, String, DateTime, LargeBinary, Integer, ForeignKey, Text
+from sqlalchemy import create_engine, Column, String, DateTime, LargeBinary, Integer, ForeignKey, Text, event
 from sqlalchemy.orm import DeclarativeBase, relationship, Session
 import datetime
 import numpy as np
 
 
-
 DATABASE_URL = "sqlite:///people.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragmas(dbapi_conn, _record):
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA synchronous=NORMAL")
+    cur.close()
 
 
 class Base(DeclarativeBase):
@@ -18,7 +25,7 @@ class User(Base):
     __tablename__ = "users"
     id         = Column(String, primary_key=True)
     name       = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     features   = relationship("UserFeature", back_populates="user", cascade="all, delete-orphan")
     sessions   = relationship("UserSession", back_populates="user")
 

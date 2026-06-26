@@ -56,6 +56,8 @@ FACE_SAMPLE_RATE = 5        # try face recognition every N frames of a track
 FACE_UPPER_FRAC  = 0.60     # crop upper 60% of bbox (head + shoulders area)
 DETECT_WIDTH     = 640      # resize for detection (Vision or YOLO)
 BODY_CONF_THRESH = 0.40     # Vision body confidence gate
+DETECT_EVERY     = 5        # run body detector every N frames (interpolate in between)
+RAW_EVENTS_MAX_AGE_HOURS = float(os.environ.get("RAW_EVENTS_MAX_AGE_HOURS", "24"))
 
 _TRACKER_CFG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "bytetrack_custom.yaml")
@@ -192,7 +194,6 @@ def _analyse_with_vision(video_path: str,
     )
     tracks:    dict[int, _Track] = {}
     frame_idx: int               = 0
-    detect_every = 5
 
     container = av.open(video_path)
     vid       = container.streams.video[0]
@@ -201,7 +202,7 @@ def _analyse_with_vision(video_path: str,
         img      = av_frame.to_ndarray(format="bgr24")
         orig_h, orig_w = img.shape[:2]
 
-        if frame_idx % detect_every == 0:
+        if frame_idx % DETECT_EVERY == 0:
             scale = DETECT_WIDTH / orig_w
             small = cv2.resize(img, (DETECT_WIDTH, int(orig_h * scale)),
                                interpolation=cv2.INTER_LINEAR)
@@ -714,10 +715,12 @@ class AnalyserDaemon:
 
     def run_forever(self) -> None:
         os.makedirs(RAW_EVENTS_DIR, exist_ok=True)
-        log.info("watching %s/  (poll %.1fs  workers=%d)",
-                 RAW_EVENTS_DIR, POLL_INTERVAL, ANALYSER_WORKERS)
+        log.info("watching %s/  (poll %.1fs  workers=%d  max_age=%.0fh)",
+                 RAW_EVENTS_DIR, POLL_INTERVAL, ANALYSER_WORKERS,
+                 RAW_EVENTS_MAX_AGE_HOURS)
         while not self._stop_event.is_set():
             self._scan()
+            self._cleanup_old_files()
             self._stop_event.wait(POLL_INTERVAL)
 
     def stop(self) -> None:
@@ -754,6 +757,25 @@ class AnalyserDaemon:
             n = len(self._processing)
             log.info("▶ %s  (active: %d/%d)", os.path.basename(video), n, ANALYSER_WORKERS)
             self._pool.submit(self._worker, video)
+
+    def _cleanup_old_files(self) -> None:
+        """Remove processed MP4s and orphaned .ready markers older than RAW_EVENTS_MAX_AGE_HOURS."""
+        cutoff = time.time() - RAW_EVENTS_MAX_AGE_HOURS * 3600
+        try:
+            entries = os.listdir(RAW_EVENTS_DIR)
+        except FileNotFoundError:
+            return
+        for name in entries:
+            path = os.path.join(RAW_EVENTS_DIR, name)
+            # Skip files currently being processed
+            if path in self._processing or path.rstrip(".ready") in self._processing:
+                continue
+            try:
+                if os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+                    log.info("retention: removed old file %s", name)
+            except OSError:
+                pass
 
     def _worker(self, video_path: str) -> None:
         try:

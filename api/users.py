@@ -38,7 +38,7 @@ async def create_user(user_id: str = Form(""), name: str = Form(""),
     with get_session() as db:
         if db.get(User, uid):
             raise HTTPException(409, "User ID already exists")
-        db.add(User(id=uid, name=nm, created_at=datetime.datetime.utcnow()))
+        db.add(User(id=uid, name=nm, created_at=datetime.datetime.now(datetime.timezone.utc)))
     return {"ok": True}
 
 

@@ -3,7 +3,7 @@ Multi-stage IOU tracker with appearance Re-ID.
 
 Matching pipeline per frame
 ───────────────────────────
- Stage 1  IOU matching           — standard position overlap
+ Stage 1  IOU matching           — Hungarian optimal assignment
  Stage 2  Centroid distance      — handles fast movement between detection cycles
  Stage 3  Appearance histogram   — handles larger position jumps (same clothing)
  Stage 4  Dead-pool Re-ID        — handles true absences (left frame, came back)
@@ -14,11 +14,17 @@ Stage 4 covers the case where the track actually expired (> max_missed frames).
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
+from scipy.optimize import linear_sum_assignment
+
+log = logging.getLogger("tracker")
+
+_INF = 1e9   # cost sentinel meaning "no valid match"
 
 # ── appearance descriptor ─────────────────────────────────────────────────────
 
@@ -69,11 +75,8 @@ def _iou(a: list, b: list) -> float:
 # ── track ─────────────────────────────────────────────────────────────────────
 
 class Track:
-    _counter = 0
-
-    def __init__(self, bbox: list):
-        Track._counter += 1
-        self.id     = Track._counter
+    def __init__(self, bbox: list, track_id: int):
+        self.id     = track_id
         self.bbox   = list(bbox)
         self.missed = 0
         self.age    = 0
@@ -116,6 +119,11 @@ class IOUTracker:
         self.reid_window          = reid_window
         self.tracks: List[Track]  = []
         self._dead_pool: List[dict] = []
+        self._next_id: int = 0   # per-tracker counter — no shared class state
+
+    def _new_track(self, bbox: list) -> Track:
+        self._next_id += 1
+        return Track(bbox, self._next_id)
 
     # ── public ────────────────────────────────────────────────────────────────
 
@@ -140,66 +148,74 @@ class IOUTracker:
         used_tracks: set = set()
         used_dets:   set = set()
 
-        # ── Stage 1: IOU matching ─────────────────────────────────────────────
-        for d_idx, det in enumerate(detections):
-            best_iou, best_t = self.iou_threshold, None
-            for t in self.tracks:
-                if id(t) in used_tracks:
+        # ── Stage 1: IOU matching (Hungarian) ────────────────────────────────
+        if detections and self.tracks:
+            nd, nt = len(detections), len(self.tracks)
+            cost = np.full((nd, nt), _INF)
+            for i, det in enumerate(detections):
+                for j, t in enumerate(self.tracks):
+                    iou = _iou(det, t.bbox)
+                    if iou >= self.iou_threshold:
+                        cost[i, j] = 1.0 - iou
+            row_ind, col_ind = linear_sum_assignment(cost)
+            for r, c in zip(row_ind, col_ind):
+                if cost[r, c] >= _INF:
                     continue
-                score = _iou(det, t.bbox)
-                if score > best_iou:
-                    best_iou, best_t = score, t
-            if best_t is not None:
-                best_t.update(det)
-                used_tracks.add(id(best_t))
-                used_dets.add(d_idx)
+                self.tracks[c].update(detections[r])
+                used_tracks.add(id(self.tracks[c]))
+                used_dets.add(r)
 
-        # ── Stage 2: Centroid distance (fast movers) ──────────────────────────
-        active_unmatched = [t for t in self.tracks
+        # ── Stage 2: Centroid distance (Hungarian, fast movers) ──────────────
+        unmatched_tracks = [t for t in self.tracks
                             if id(t) not in used_tracks and t.age >= self.min_age]
+        unmatched_dets   = [i for i in range(len(detections)) if i not in used_dets]
 
-        for d_idx in range(len(detections)):
-            if d_idx in used_dets:
-                continue
-            det = detections[d_idx]
-            best_dist, best_t = self.max_centroid_dist, None
-            for t in active_unmatched:
-                if id(t) in used_tracks:
+        if unmatched_dets and unmatched_tracks:
+            nd, nt = len(unmatched_dets), len(unmatched_tracks)
+            cost = np.full((nd, nt), _INF)
+            for i, d_idx in enumerate(unmatched_dets):
+                for j, t in enumerate(unmatched_tracks):
+                    d = _dist(detections[d_idx], t.bbox)
+                    if d < self.max_centroid_dist:
+                        cost[i, j] = d
+            row_ind, col_ind = linear_sum_assignment(cost)
+            for r, c in zip(row_ind, col_ind):
+                if cost[r, c] >= _INF:
                     continue
-                d = _dist(det, t.bbox)
-                if d < best_dist:
-                    best_dist, best_t = d, t
-            if best_t is not None:
-                h = _body_hist(frame, det) if frame is not None else None
-                best_t.update(det, h)
-                used_tracks.add(id(best_t))
+                d_idx = unmatched_dets[r]
+                t     = unmatched_tracks[c]
+                h = _body_hist(frame, detections[d_idx]) if frame is not None else None
+                t.update(detections[d_idx], h)
+                used_tracks.add(id(t))
                 used_dets.add(d_idx)
 
-        # ── Stage 3: Appearance histogram (same person, different position) ───
-        active_unmatched = [t for t in self.tracks
+        # ── Stage 3: Appearance histogram (Hungarian) ────────────────────────
+        unmatched_tracks = [t for t in self.tracks
                             if id(t) not in used_tracks
                             and t.age >= self.min_age
                             and t.hist is not None]
+        unmatched_dets   = [i for i in range(len(detections)) if i not in used_dets]
 
-        if frame is not None:
-            for d_idx in range(len(detections)):
-                if d_idx in used_dets:
+        if frame is not None and unmatched_dets and unmatched_tracks:
+            det_hists = [_body_hist(frame, detections[i]) for i in unmatched_dets]
+            nd, nt = len(unmatched_dets), len(unmatched_tracks)
+            cost = np.full((nd, nt), _INF)
+            for i, dh in enumerate(det_hists):
+                if dh is None:
                     continue
-                det      = detections[d_idx]
-                det_hist = _body_hist(frame, det)
-                if det_hist is None:
+                for j, t in enumerate(unmatched_tracks):
+                    sim = _hist_sim(dh, t.hist)
+                    if sim >= self.appearance_threshold:
+                        cost[i, j] = 1.0 - sim
+            row_ind, col_ind = linear_sum_assignment(cost)
+            for r, c in zip(row_ind, col_ind):
+                if cost[r, c] >= _INF:
                     continue
-                best_sim, best_t = self.appearance_threshold, None
-                for t in active_unmatched:
-                    if id(t) in used_tracks:
-                        continue
-                    sim = _hist_sim(det_hist, t.hist)
-                    if sim > best_sim:
-                        best_sim, best_t = sim, t
-                if best_t is not None:
-                    best_t.update(det, det_hist)
-                    used_tracks.add(id(best_t))
-                    used_dets.add(d_idx)
+                d_idx = unmatched_dets[r]
+                t     = unmatched_tracks[c]
+                t.update(detections[d_idx], det_hists[r])
+                used_tracks.add(id(t))
+                used_dets.add(d_idx)
 
         # ── increment missed for unmatched active tracks ───────────────────────
         for t in self.tracks:
@@ -222,7 +238,7 @@ class IOUTracker:
         for d_idx, det in enumerate(detections):
             if d_idx in used_dets:
                 continue
-            t = Track(det)
+            t = self._new_track(det)
             if frame is not None and self._dead_pool:
                 det_hist  = _body_hist(frame, det)
                 best_dead = self._match_dead(det_hist, det)
@@ -231,7 +247,7 @@ class IOUTracker:
                     t.age  = self.min_age
                     t.hist = best_dead["hist"]
                     self._dead_pool.remove(best_dead)
-                    print(f"[Tracker] Stage4 dead-pool resume → track {t.id}")
+                    log.debug("Stage4 dead-pool resume → track %d", t.id)
             self.tracks.append(t)
 
         return [

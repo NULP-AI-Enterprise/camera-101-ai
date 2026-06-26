@@ -19,15 +19,14 @@ def is_authed(session: str = Cookie(default="")) -> bool:
 
 
 @router.post("/login")
-async def login(response: Response,
-                username: str = Form(""),
-                password: str = Form("")):
+async def login(username: str = Form(""), password: str = Form("")):
     if not AUTH_USER or (username == AUTH_USER and password == AUTH_PASS):
-        response.set_cookie(
+        resp = JSONResponse({"ok": True})
+        resp.set_cookie(
             "session", SESSION_TOKEN or "anon",
-            httponly=True, samesite="lax", max_age=86400 * 30,
+            httponly=True, samesite="lax", max_age=86400 * 30, path="/",
         )
-        return JSONResponse({"ok": True})
+        return resp
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 

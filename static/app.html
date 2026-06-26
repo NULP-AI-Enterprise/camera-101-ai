@@ -200,7 +200,7 @@ input:focus{outline:none;border-color:var(--accent)}
     <!-- Left: stream -->
     <div>
       <div class="card" style="padding:0;overflow:hidden">
-        <img id="stream-img" src="/stream" alt="Live" onerror="streamError()" onload="streamOk()">
+        <img id="stream-img" src="" alt="Live" onerror="streamError()" onload="streamOk()">
         <div id="stream-placeholder" class="stream-placeholder" style="display:none">
           No stream — start recorder first
         </div>
@@ -376,6 +376,7 @@ document.addEventListener('keydown', e => {
 });
 
 function init() {
+  document.getElementById('stream-img').src = '/stream';
   startStatusPoll();
   startEventsPoll();
 }
@@ -385,8 +386,8 @@ async function doLogin() {
   const fd = new FormData();
   fd.append('username', document.getElementById('login-user').value);
   fd.append('password', document.getElementById('login-pass').value);
-  const r = await fetch('/login', {method:'POST', body:fd});
-  if (r.ok) { location.reload(); }
+  const r = await fetch('/login', {method:'POST', body:fd, credentials:'include'});
+  if (r.ok) { window.location.href = '/'; }
   else { document.getElementById('login-err').textContent = 'Invalid credentials'; }
 }
 

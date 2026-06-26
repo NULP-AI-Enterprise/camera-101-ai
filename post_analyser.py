@@ -757,7 +757,15 @@ class AnalyserDaemon:
 
     def _worker(self, video_path: str) -> None:
         try:
-            _thread_analyser().analyse(video_path)
+            ok = _thread_analyser().analyse(video_path)
+            # analyse() returns False and deletes the file for false-positives;
+            # if the file is still here, it was a transient open/read error.
+            # Retry once after a short delay (race with encoder finishing the file).
+            if not ok and os.path.exists(video_path):
+                log.info("[retry] video still on disk after failure — retrying in 5s: %s",
+                         os.path.basename(video_path))
+                time.sleep(5)
+                _thread_analyser().analyse(video_path)
         except Exception as e:
             log.error("worker error on %s: %s", os.path.basename(video_path), e)
         finally:

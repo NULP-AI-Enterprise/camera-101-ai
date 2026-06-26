@@ -85,9 +85,10 @@ class AsyncVideoWriter:
         except queue.Full:
             self.dropped += 1
 
-    def close(self, timeout: float = 30.0) -> None:
+    def close(self, timeout: float = 30.0) -> bool:
+        """Signal end-of-stream. Returns True if flushed cleanly, False if timed out."""
         self._q.put(None)
-        self._done.wait(timeout=timeout)
+        return self._done.wait(timeout=timeout)
 
     def _run(self, filename: str, fps: float, w: int, h: int) -> None:
         try:
@@ -217,7 +218,14 @@ class MotionRecorder:
         if not self._writer:
             return
         dur = (now - self._rec_start).total_seconds() if self._rec_start else 0
-        self._writer.close()
+        flushed = self._writer.close()
+        if not flushed:
+            log.error("encoder timed out for %s — skipping analysis (incomplete file)",
+                      os.path.basename(self._rec_path or ""))
+            self._writer = None
+            self._rec_path = None
+            self._rec_start = None
+            return
         if self._writer.dropped:
             log.warning("%d frames dropped — %s",
                         self._writer.dropped, os.path.basename(self._rec_path or ""))

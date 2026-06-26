@@ -360,6 +360,7 @@ let _currentLog = 'stream';
 let _logSse = null;
 let _statusInterval = null;
 let _eventsInterval = null;
+let _sessionUsers = [];
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 if (!AUTHED) {
@@ -505,9 +506,10 @@ async function loadUsers() {
           <video id="cam_${u.id}" class="webcam-preview" autoplay muted playsinline style="display:none"></video>
           <canvas id="cv_${u.id}" style="display:none"></canvas>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost" onclick="startCam('${u.id}')">📷 Open camera</button>
-            <button class="btn btn-success" id="cap_${u.id}" style="display:none" onclick="captureCam('${u.id}')">📸 Capture & Save</button>
-            <button class="btn btn-danger" onclick="deleteUser('${u.id}', '${u.name}')">🗑 Delete user</button>
+            <button class="btn btn-ghost" onclick="startCam('${u.id}')">📷 Camera</button>
+            <button class="btn btn-success" id="cap_${u.id}" style="display:none" onclick="captureCam('${u.id}')">📸 Capture</button>
+            <label class="btn btn-ghost" style="cursor:pointer">🖼 Upload photo<input type="file" accept="image/*" style="display:none" onchange="uploadFaceFile('${u.id}',this)"></label>
+            <button class="btn btn-danger" onclick="deleteUser('${u.id}', '${u.name}')">🗑 Delete</button>
           </div>
           <div id="msg_${u.id}" style="margin-top:8px;font-size:.82rem"></div>
         </div>
@@ -555,6 +557,28 @@ async function captureCam(uid) {
       document.getElementById(`msg_${uid}`).innerHTML = `<span style="color:var(--red)">Network error</span>`;
     }
   }, 'image/jpeg', 0.92);
+}
+
+async function uploadFaceFile(uid, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const msg = document.getElementById(`msg_${uid}`);
+  msg.innerHTML = '<span class="spinner"></span> Processing…';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(`/api/users/${uid}/embeddings`, {method:'POST', body:fd});
+    const j = await r.json();
+    if (r.ok) {
+      msg.innerHTML = `<span style="color:var(--green)">Saved! ${j.embedding_count} angle(s) total.</span>`;
+      loadUsers();
+    } else {
+      msg.innerHTML = `<span style="color:var(--red)">${j.detail || 'Error'}</span>`;
+    }
+  } catch(e) {
+    msg.innerHTML = `<span style="color:var(--red)">Network error</span>`;
+  }
+  input.value = '';
 }
 
 async function deleteUser(uid, name) {
@@ -717,6 +741,7 @@ function fidReset() {
 async function loadSessions() {
   const el = document.getElementById('sessions-list');
   el.innerHTML = '<div class="empty">Loading…</div>';
+  try { _sessionUsers = await api('GET', '/api/users'); } catch(e) {}
   const recs = await api('GET', '/api/recordings');
   if (!recs.length) { el.innerHTML = '<div class="empty">No recordings yet</div>'; return; }
   el.innerHTML = recs.map(r => {
@@ -732,15 +757,23 @@ async function loadSessions() {
         ? `${fmtTime(e.first_seen)} – ${fmtTime(e.last_seen)}` : '';
       const reanaBtn = !e.user_id && r.video_exists
         ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:4px 8px;margin-top:4px" onclick="reanalyseOne(${e.id}, this)">🔄 Re-ID</button>` : '';
+      const assignUI = !e.user_id && _sessionUsers.length
+        ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">
+             <select id="asgn_${e.id}" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 5px;font-size:.7rem;width:140px">
+               <option value="">— link to user —</option>
+               ${_sessionUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+             </select>
+             <button class="btn btn-success" style="font-size:.7rem;padding:3px 8px" onclick="assignEventUser(${e.id},this)">✓ Link &amp; Save Face</button>
+           </div>` : '';
       if (e.snapshot_exists) {
         return `<div class="snap-card">
           <img src="/snapshot/${e.snapshot_path}" loading="lazy" alt="">
-          ${badge}<div class="snap-time">${t}</div>${reanaBtn}
+          ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}
         </div>`;
       }
       return `<div class="snap-card">
         <div style="width:140px;height:140px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">no snap</div>
-        ${badge}<div class="snap-time">${t}</div>${reanaBtn}
+        ${badge}<div class="snap-time">${t}</div>${reanaBtn}${assignUI}
       </div>`;
     }).join('');
     const video = r.video_exists
@@ -767,6 +800,32 @@ async function loadSessions() {
 
 function toggleRec(id) {
   document.getElementById(id).classList.toggle('open');
+}
+
+async function assignEventUser(eventId, btn) {
+  const sel = document.getElementById(`asgn_${eventId}`);
+  const userId = sel ? sel.value : '';
+  if (!userId) { if(sel){sel.style.borderColor='var(--red)';setTimeout(()=>sel.style.borderColor='',1500);} return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const fd = new FormData();
+    fd.append('user_id', userId);
+    const r = await fetch(`/api/events/${eventId}/assign-user`, {method:'POST', body:fd});
+    const j = await r.json();
+    if (r.ok) {
+      btn.textContent = `✓ ${j.user_name}${j.embedding_added ? ' + face' : ''}`;
+      btn.style.color = 'var(--green)';
+      setTimeout(loadSessions, 1200);
+    } else {
+      btn.textContent = j.detail || 'Error';
+      btn.style.color = 'var(--red)';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = '✗ Error';
+    btn.disabled = false;
+  }
 }
 
 async function reanalyseOne(eventId, btn) {

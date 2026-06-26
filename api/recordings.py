@@ -4,11 +4,13 @@ from __future__ import annotations
 import datetime
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+import cv2
+import numpy as np
+from fastapi import APIRouter, Depends, Form, HTTPException
 
 from .auth import require_auth
 from .deps import get_embedder
-from db import PersonEvent, Recording, User, UserFeature, bytes_to_emb, get_session
+from db import PersonEvent, Recording, User, UserFeature, bytes_to_emb, emb_to_bytes, get_session
 
 router = APIRouter()
 
@@ -74,6 +76,38 @@ def reanalyse_event(event_id: int, _=Depends(require_auth)):
             name = u.name if u else uid
 
     return {"user_id": uid, "user_name": name}
+
+
+@router.post("/events/{event_id}/assign-user")
+def assign_event_user(event_id: int, user_id: str = Form(""), _=Depends(require_auth)):
+    """Link an unrecognized event to an existing user and save their face embedding."""
+    user_id = user_id.strip()
+    if not user_id:
+        raise HTTPException(400, "user_id is required")
+
+    embedded = False
+    with get_session() as db:
+        ev = db.get(PersonEvent, event_id)
+        if not ev:
+            raise HTTPException(404, "Event not found")
+        u = db.get(User, user_id)
+        if not u:
+            raise HTTPException(404, f"User '{user_id}' not found")
+        ev.user_id = user_id
+
+        # Try to extract a face embedding from the snapshot photo
+        if ev.snapshot_path and os.path.exists(ev.snapshot_path):
+            try:
+                img = cv2.imread(ev.snapshot_path)
+                if img is not None:
+                    emb = get_embedder().get_embedding(img)
+                    if emb is not None:
+                        db.add(UserFeature(user_id=user_id, embedding=emb_to_bytes(emb)))
+                        embedded = True
+            except Exception:
+                pass
+
+    return {"ok": True, "user_name": u.name, "embedding_added": embedded}
 
 
 @router.delete("/recordings/all")

@@ -47,15 +47,15 @@ ENV PATH="/venv/bin:$PATH" \
 
 EXPOSE 8501
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget -qO- http://localhost:8501/health || exit 1
 
-# CWD=/data (PVC) — relative paths (people.db, raw_events/, logs, models) resolve there
-# alembic upgrade head runs any pending schema migrations before the server starts.
-CMD ["sh", "-c", "cd /data && \
-     DATABASE_URL=sqlite:////data/people.db \
-       alembic --config /app/alembic.ini upgrade head \
-       || echo 'WARNING: alembic upgrade failed — check logs/migration.log' ; \
-     exec uvicorn server:app \
-     --host 0.0.0.0 --port 8501 --workers 1 \
-     --app-dir /app --no-access-log"]
+# Runtime CWD = /data (PVC mount) so that relative paths (people.db, logs/,
+# raw_events/, snapshots/, models) all resolve to the persistent volume.
+# db.py calls Base.metadata.create_all() at import time — tables are created
+# automatically on first run without needing a separate alembic step.
+# Schema migrations: run manually inside the container when needed:
+#   kubectl exec <pod> -- alembic --config /app/alembic.ini upgrade head
+WORKDIR /data
+
+CMD ["/venv/bin/uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8501", "--workers", "1", "--app-dir", "/app", "--no-access-log"]

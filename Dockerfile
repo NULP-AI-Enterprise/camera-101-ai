@@ -49,9 +49,9 @@ ENV PATH="/venv/bin:$PATH" \
 EXPOSE 8501
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD wget -qO- http://localhost:8501/_stcore/health || exit 1
+    CMD wget -qO- http://localhost:8501/health || exit 1
 
-# CWD=/data (PVC) — relative paths (people.db, raw_events/, models) resolve there
-CMD ["sh", "-c", "cd /data && exec streamlit run /app/admin_app.py \
-     --server.port=8501 --server.address=0.0.0.0 \
-     --server.headless=true --server.fileWatcherType=none"]
+# CWD=/data (PVC) — relative paths (people.db, raw_events/, logs, models) resolve there
+CMD ["sh", "-c", "cd /data && exec uvicorn server:app \
+     --host 0.0.0.0 --port 8501 --workers 1 \
+     --app-dir /app --no-access-log"]

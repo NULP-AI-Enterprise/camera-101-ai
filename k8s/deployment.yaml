@@ -81,19 +81,19 @@ spec:
           # and readiness probes activate.
           startupProbe:
             httpGet:
-              path: /_stcore/health
+              path: /health
               port: http
             failureThreshold: 30   # 30 × 10s = 5 min max startup time
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /_stcore/health
+              path: /health
               port: http
             periodSeconds: 20
             failureThreshold: 3    # restart after 60 s of no response
           readinessProbe:
             httpGet:
-              path: /_stcore/health
+              path: /health
               port: http
             periodSeconds: 10
             failureThreshold: 3

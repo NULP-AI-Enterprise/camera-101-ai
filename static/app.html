@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camera 101 AI</title>
+<style>
+:root {
+  --bg:      #0d0d1a;
+  --surface: #151527;
+  --card:    #1c1c35;
+  --border:  #2a2a4a;
+  --accent:  #4f7cff;
+  --green:   #34c759;
+  --red:     #ff453a;
+  --orange:  #ff9f0a;
+  --text:    #e2e2f0;
+  --muted:   #8888aa;
+  --radius:  10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh}
+
+/* ── nav ── */
+nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:1rem;color:var(--text);margin-right:32px;white-space:nowrap}
+.logo span{color:var(--accent)}
+.tabs{display:flex;gap:2px;flex:1}
+.tab{background:none;border:none;color:var(--muted);cursor:pointer;padding:8px 14px;border-radius:var(--radius);font-size:.85rem;font-weight:500;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--text);background:var(--card)}
+.tab.active{color:var(--text);background:var(--accent)}
+.nav-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:6px 12px;border-radius:var(--radius);font-size:.8rem}
+.logout-btn:hover{color:var(--text);border-color:var(--text)}
+
+/* ── layout ── */
+main{padding:20px;max-width:1400px;margin:0 auto}
+.page{display:none}
+.page.active{display:block}
+
+/* ── cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card-title{font-weight:600;font-size:.95rem;margin-bottom:12px;color:var(--text)}
+
+/* ── grid ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid-3{grid-template-columns:1fr}}
+
+/* ── status pill ── */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:.8rem;font-weight:600}
+.pill.on{background:rgba(52,199,89,.15);color:var(--green)}
+.pill.off{background:rgba(255,69,58,.12);color:var(--red)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#3a66ee}
+.btn-success{background:rgba(52,199,89,.2);color:var(--green);border:1px solid rgba(52,199,89,.3)}
+.btn-success:hover{background:rgba(52,199,89,.3)}
+.btn-danger{background:rgba(255,69,58,.15);color:var(--red);border:1px solid rgba(255,69,58,.25)}
+.btn-danger:hover{background:rgba(255,69,58,.25)}
+.btn-ghost{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+/* ── stream ── */
+#stream-img{width:100%;border-radius:var(--radius);background:#000;aspect-ratio:16/9;object-fit:contain;display:block}
+.stream-placeholder{width:100%;aspect-ratio:16/9;background:#000;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.9rem}
+
+/* ── module row ── */
+.module-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.module-row:last-child{border-bottom:none;padding-bottom:0}
+.module-label{flex:1;font-weight:600;font-size:.9rem}
+.module-sub{color:var(--muted);font-size:.75rem;margin-top:2px}
+
+/* ── events table ── */
+.event-table{width:100%;border-collapse:collapse}
+.event-table th{text-align:left;color:var(--muted);font-size:.75rem;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--border)}
+.event-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.event-table tr:hover td{background:rgba(255,255,255,.02)}
+.badge-known{background:rgba(52,199,89,.12);color:var(--green);padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-unknown{background:rgba(255,159,10,.12);color:var(--orange);padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:600}
+
+/* ── log terminal ── */
+.log-wrap{background:#000;border-radius:var(--radius);padding:14px;font-family:'SF Mono','Fira Code',monospace;font-size:.78rem;height:480px;overflow-y:auto;line-height:1.6;scroll-behavior:smooth}
+.log-line{white-space:pre-wrap;word-break:break-all}
+.log-info{color:#d0d0e0}
+.log-debug{color:#555}
+.log-warn{color:#ff9f0a}
+.log-error,.log-crit{color:#ff453a}
+
+/* ── user cards ── */
+.user-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.user-card-head{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;user-select:none}
+.user-avatar{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta{color:var(--muted);font-size:.75rem;margin-top:2px}
+.user-body{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
+.user-body.open{display:block}
+.webcam-preview{width:100%;border-radius:8px;background:#000;aspect-ratio:4/3;object-fit:cover;margin-bottom:10px}
+
+/* ── face id ── */
+.faceid-wrap{max-width:480px;margin:0 auto;text-align:center}
+.faceid-oval{position:relative;width:160px;height:200px;margin:0 auto 16px}
+.faceid-oval svg{position:absolute;top:0;left:0}
+.faceid-arrow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:56px;line-height:1}
+.faceid-title{font-size:1.25rem;font-weight:700;margin-bottom:6px}
+.faceid-sub{color:var(--muted);font-size:.9rem;margin-bottom:20px}
+.step-dots{display:flex;justify-content:center;gap:6px;margin:12px 0 20px}
+.step-dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+.step-dot.done{background:var(--green)}
+.step-dot.active{background:var(--accent)}
+.webcam-box{position:relative;display:inline-block;width:240px}
+.webcam-box video{width:240px;height:180px;border-radius:var(--radius);background:#000;object-fit:cover;display:block}
+.webcam-box canvas{display:none}
+.capture-flash{position:absolute;inset:0;background:#fff;border-radius:var(--radius);opacity:0;pointer-events:none;transition:opacity .15s}
+
+/* ── recordings ── */
+.rec-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+.rec-head{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
+.rec-icon{color:var(--accent);font-size:1.2rem}
+.rec-info{flex:1;min-width:0}
+.rec-time{font-weight:600;font-size:.9rem}
+.rec-meta{color:var(--muted);font-size:.75rem;margin-top:2px}
+.rec-body{display:none;border-top:1px solid var(--border);padding:16px}
+.rec-body.open{display:block}
+.snap-grid{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.snap-card{width:140px;text-align:center}
+.snap-card img{width:140px;height:140px;object-fit:cover;border-radius:8px;background:#000;display:block}
+.snap-card .snap-label{font-size:.8rem;margin-top:6px;font-weight:600}
+.snap-card .snap-time{font-size:.72rem;color:var(--muted);margin-top:2px}
+
+/* ── misc ── */
+.alert{padding:10px 14px;border-radius:var(--radius);font-size:.85rem;margin-bottom:12px}
+.alert-success{background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);color:var(--green)}
+.alert-error{background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.3);color:var(--red)}
+.alert-info{background:rgba(79,124,255,.1);border:1px solid rgba(79,124,255,.3);color:var(--accent)}
+.empty{color:var(--muted);text-align:center;padding:40px;font-size:.9rem}
+input[type=text],input[type=password]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:9px 12px;font-size:.9rem}
+input:focus{outline:none;border-color:var(--accent)}
+.form-group{margin-bottom:14px}
+.form-label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:5px;font-weight:500}
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── login overlay ── */
+#login-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+#login-overlay .card{width:340px;padding:32px}
+#login-overlay h2{font-size:1.4rem;margin-bottom:4px}
+#login-overlay p{color:var(--muted);font-size:.85rem;margin-bottom:24px}
+</style>
+</head>
+<body>
+
+<!-- Login overlay (shown when not authed) -->
+<div id="login-overlay" style="display:none">
+  <div class="card">
+    <h2>Sign In</h2>
+    <p>Camera 101 AI — Admin Panel</p>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input type="text" id="login-user" autocomplete="username" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" id="login-pass" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">Sign in</button>
+    <div id="login-err" style="color:var(--red);font-size:.82rem;margin-top:10px;text-align:center"></div>
+  </div>
+</div>
+
+<!-- Top nav -->
+<nav>
+  <div class="logo">Camera <span>101</span> AI</div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('live')">📹 Live</button>
+    <button class="tab" onclick="showTab('users')">👤 Users</button>
+    <button class="tab" onclick="showTab('adduser')">➕ Add User</button>
+    <button class="tab" onclick="showTab('sessions')">📋 Sessions</button>
+    <button class="tab" onclick="showTab('logs')">📜 Logs</button>
+  </div>
+  <div class="nav-right">
+    <button class="logout-btn" onclick="doLogout()">Sign out</button>
+  </div>
+</nav>
+
+<main>
+
+<!-- ════════════════════════ LIVE PAGE ════════════════════════ -->
+<div class="page active" id="page-live">
+  <div class="grid-2" style="gap:20px;align-items:start">
+
+    <!-- Left: stream -->
+    <div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <img id="stream-img" src="/stream" alt="Live" onerror="streamError()" onload="streamOk()">
+        <div id="stream-placeholder" class="stream-placeholder" style="display:none">
+          No stream — start recorder first
+        </div>
+      </div>
+      <div id="stream-caption" style="color:var(--muted);font-size:.78rem;margin-top:6px;text-align:center"></div>
+    </div>
+
+    <!-- Right: controls + recent events -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Module controls -->
+      <div class="card">
+        <div class="card-title">Modules</div>
+        <div class="module-row">
+          <div style="flex:1">
+            <div class="module-label">Module A — Recorder</div>
+            <div class="module-sub">RTSP capture + preview</div>
+          </div>
+          <span id="rec-pill" class="pill off"><span class="dot"></span>Stopped</span>
+          <div class="btn-row" style="margin:0;gap:6px">
+            <button id="rec-start" class="btn btn-success btn-sm" onclick="moduleCtrl('recorder','start')">▶</button>
+            <button id="rec-stop"  class="btn btn-danger  btn-sm" onclick="moduleCtrl('recorder','stop')">■</button>
+            <button class="btn btn-ghost btn-sm" onclick="moduleCtrl('recorder','restart')">↺</button>
+          </div>
+        </div>
+        <div class="module-row">
+          <div style="flex:1">
+            <div class="module-label">Module B — Analyser</div>
+            <div class="module-sub">Person tracking + face ID</div>
+          </div>
+          <span id="ana-pill" class="pill off"><span class="dot"></span>Stopped</span>
+          <div class="btn-row" style="margin:0;gap:6px">
+            <button id="ana-start" class="btn btn-success btn-sm" onclick="moduleCtrl('analyser','start')">▶</button>
+            <button id="ana-stop"  class="btn btn-danger  btn-sm" onclick="moduleCtrl('analyser','stop')">■</button>
+            <button class="btn btn-ghost btn-sm" onclick="moduleCtrl('analyser','restart')">↺</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent events -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin:0">Recent Events</div>
+          <span id="events-count" style="color:var(--muted);font-size:.78rem"></span>
+        </div>
+        <div id="live-events">
+          <div class="empty">No events yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ USERS PAGE ════════════════════════ -->
+<div class="page" id="page-users">
+  <div class="toolbar">
+    <div style="font-size:1.1rem;font-weight:700">Registered Users</div>
+    <div id="users-count" style="color:var(--muted);font-size:.82rem"></div>
+  </div>
+  <div id="users-list"><div class="empty">Loading…</div></div>
+</div>
+
+<!-- ════════════════════════ ADD USER PAGE ════════════════════════ -->
+<div class="page" id="page-adduser">
+  <div class="faceid-wrap">
+
+    <!-- Step 0: name + ID form -->
+    <div id="fid-form">
+      <div class="card" style="text-align:left;max-width:400px;margin:0 auto">
+        <div class="card-title" style="font-size:1.15rem">Face ID Setup</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-bottom:20px">
+          6 guided head positions — like Apple Face ID
+        </div>
+        <div class="form-group">
+          <label class="form-label">User ID (unique)</label>
+          <input type="text" id="fid-uid" placeholder="emp_001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="fid-name" placeholder="John Doe">
+        </div>
+        <div id="fid-form-err" class="alert alert-error" style="display:none"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fidStart()">
+          Start Face Scan →
+        </button>
+      </div>
+    </div>
+
+    <!-- Steps 1-6 -->
+    <div id="fid-scan" style="display:none">
+      <div class="faceid-oval">
+        <svg id="fid-svg" width="160" height="200" viewBox="0 0 160 200">
+          <ellipse cx="80" cy="100" rx="74" ry="92" fill="none" stroke="var(--border)" stroke-width="3"/>
+          <ellipse id="fid-ring" cx="80" cy="100" rx="74" ry="92" fill="none"
+                   stroke="var(--accent)" stroke-width="3" stroke-dasharray="0 9999"
+                   stroke-linecap="round" transform="rotate(-90 80 100)"/>
+        </svg>
+        <div id="fid-arrow" class="faceid-arrow">◎</div>
+      </div>
+      <div id="fid-step-label" class="faceid-title"></div>
+      <div class="step-dots" id="fid-dots"></div>
+      <div id="fid-scan-msg" style="min-height:24px;margin-bottom:12px;font-size:.85rem"></div>
+
+      <div class="webcam-box" style="margin:0 auto">
+        <video id="fid-video" autoplay muted playsinline></video>
+        <canvas id="fid-canvas"></canvas>
+        <div id="fid-flash" class="capture-flash"></div>
+      </div>
+
+      <div class="btn-row" style="justify-content:center;margin-top:16px">
+        <button id="fid-capture-btn" class="btn btn-primary" onclick="fidCapture()">
+          📸 Capture
+        </button>
+        <button class="btn btn-ghost" onclick="fidCancel()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Done screen -->
+    <div id="fid-done" style="display:none;text-align:center;padding:40px 0">
+      <div style="font-size:72px;margin-bottom:16px">✅</div>
+      <div class="faceid-title">Face ID Complete</div>
+      <div id="fid-done-msg" style="color:var(--muted);font-size:.9rem;margin:8px 0 24px"></div>
+      <button class="btn btn-primary" onclick="fidReset()">Register Another Person</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ SESSIONS PAGE ════════════════════════ -->
+<div class="page" id="page-sessions">
+  <div class="toolbar">
+    <div style="font-size:1.1rem;font-weight:700">Access Log</div>
+    <div style="flex:1"></div>
+    <button class="btn btn-ghost" onclick="reanalyseAll(this)">🔄 Re-analyze unknowns</button>
+    <button class="btn btn-danger" onclick="clearAll()">🗑 Clear all</button>
+  </div>
+  <div id="sessions-list"><div class="empty">Loading…</div></div>
+</div>
+
+<!-- ════════════════════════ LOGS PAGE ════════════════════════ -->
+<div class="page" id="page-logs">
+  <div class="toolbar" style="margin-bottom:12px">
+    <div style="font-size:1.1rem;font-weight:700">System Logs</div>
+    <div style="flex:1"></div>
+    <button class="tab active" id="log-tab-stream"   onclick="switchLog('stream')">Module A</button>
+    <button class="tab"        id="log-tab-analyser" onclick="switchLog('analyser')">Module B</button>
+    <button class="btn btn-danger" onclick="clearLog()">🗑 Clear</button>
+  </div>
+  <div class="log-wrap" id="log-box"></div>
+  <div style="color:var(--muted);font-size:.75rem;margin-top:6px" id="log-caption"></div>
+</div>
+
+</main>
+
+<script>
+const AUTHED = '__AUTHED__' === 'true';
+let _currentLog = 'stream';
+let _logSse = null;
+let _statusInterval = null;
+let _eventsInterval = null;
+
+// ── boot ──────────────────────────────────────────────────────────────────────
+if (!AUTHED) {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('login-user').focus();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (AUTHED) init();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-overlay').style.display !== 'none') doLogin();
+});
+
+function init() {
+  startStatusPoll();
+  startEventsPoll();
+}
+
+// ── auth ──────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const fd = new FormData();
+  fd.append('username', document.getElementById('login-user').value);
+  fd.append('password', document.getElementById('login-pass').value);
+  const r = await fetch('/login', {method:'POST', body:fd});
+  if (r.ok) { location.reload(); }
+  else { document.getElementById('login-err').textContent = 'Invalid credentials'; }
+}
+
+function doLogout() { location.href = '/logout'; }
+
+// ── tab navigation ────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  if (name === 'users')    loadUsers();
+  if (name === 'sessions') loadSessions();
+  if (name === 'logs')     startLog('stream');
+  if (name === 'live')     { startStatusPoll(); startEventsPoll(); }
+  if (name !== 'logs' && _logSse) { _logSse.close(); _logSse = null; }
+}
+
+// ── status poll ───────────────────────────────────────────────────────────────
+function startStatusPoll() {
+  if (_statusInterval) return;
+  updateStatus();
+  _statusInterval = setInterval(updateStatus, 3000);
+}
+
+async function updateStatus() {
+  try {
+    const s = await api('GET', '/api/status');
+    setModule('rec', s.recorder);
+    setModule('ana', s.analyser);
+    if (s.preview_age !== null) {
+      document.getElementById('stream-caption').textContent =
+        `Last frame: ${s.preview_age}s ago`;
+    }
+  } catch(e) {}
+}
+
+function setModule(prefix, running) {
+  const pill  = document.getElementById(prefix + '-pill');
+  const start = document.getElementById(prefix + '-start');
+  const stop  = document.getElementById(prefix + '-stop');
+  pill.className = 'pill ' + (running ? 'on' : 'off');
+  pill.innerHTML = `<span class="dot"></span>${running ? 'Running' : 'Stopped'}`;
+  if (start) start.disabled = running;
+  if (stop)  stop.disabled  = !running;
+}
+
+async function moduleCtrl(mod, action) {
+  await api('POST', `/api/control/${mod}/${action}`);
+  updateStatus();
+}
+
+// ── stream image ──────────────────────────────────────────────────────────────
+function streamError() {
+  document.getElementById('stream-img').style.display = 'none';
+  document.getElementById('stream-placeholder').style.display = 'flex';
+}
+function streamOk() {
+  document.getElementById('stream-img').style.display = 'block';
+  document.getElementById('stream-placeholder').style.display = 'none';
+}
+
+// ── recent events ─────────────────────────────────────────────────────────────
+function startEventsPoll() {
+  if (_eventsInterval) return;
+  loadLiveEvents();
+  _eventsInterval = setInterval(loadLiveEvents, 5000);
+}
+
+async function loadLiveEvents() {
+  try {
+    const recs = await api('GET', '/api/recordings');
+    const events = recs.flatMap(r => r.events.map(e => ({...e, rec_id: r.id, start_time: r.start_time})));
+    events.sort((a,b) => (b.first_seen||'').localeCompare(a.first_seen||''));
+    const recent = events.slice(0, 12);
+    const el = document.getElementById('live-events');
+    document.getElementById('events-count').textContent = `${events.length} total`;
+    if (!recent.length) { el.innerHTML = '<div class="empty">No events yet</div>'; return; }
+    el.innerHTML = `<table class="event-table">
+      <thead><tr><th>Time</th><th>Person</th><th>Duration</th></tr></thead>
+      <tbody>${recent.map(e => {
+        const time = e.first_seen ? fmtTime(e.first_seen) : '—';
+        const dur  = (e.first_seen && e.last_seen)
+          ? `${Math.round((new Date(e.last_seen) - new Date(e.first_seen)) / 1000)}s` : '—';
+        const badge = e.user_id
+          ? `<span class="badge-known">${e.user_name || e.user_id}</span>`
+          : `<span class="badge-unknown">Unknown</span>`;
+        return `<tr><td>${time}</td><td>${badge}</td><td>${dur}</td></tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e) {}
+}
+
+// ── users ─────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const el = document.getElementById('users-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  const users = await api('GET', '/api/users');
+  document.getElementById('users-count').textContent = `${users.length} user(s)`;
+  if (!users.length) { el.innerHTML = '<div class="empty">No users yet. Go to <b>Add User</b> to register someone.</div>'; return; }
+  el.innerHTML = users.map(u => `
+    <div class="user-card" style="margin-bottom:10px">
+      <div class="user-card-head" onclick="toggleUser('u_${u.id}')">
+        <div class="user-avatar">${u.name[0].toUpperCase()}</div>
+        <div class="user-info">
+          <div class="user-name">${u.name}</div>
+          <div class="user-meta">${u.id} · ${u.embedding_count} embedding(s) · ${u.created_at ? fmtDate(u.created_at) : '—'}</div>
+        </div>
+        <span style="color:var(--muted);margin-left:8px">›</span>
+      </div>
+      <div class="user-body" id="u_${u.id}">
+        <div style="margin-top:12px">
+          <div style="font-weight:600;font-size:.85rem;margin-bottom:8px">Add face angle</div>
+          <video id="cam_${u.id}" class="webcam-preview" autoplay muted playsinline style="display:none"></video>
+          <canvas id="cv_${u.id}" style="display:none"></canvas>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="startCam('${u.id}')">📷 Open camera</button>
+            <button class="btn btn-success" id="cap_${u.id}" style="display:none" onclick="captureCam('${u.id}')">📸 Capture & Save</button>
+            <button class="btn btn-danger" onclick="deleteUser('${u.id}', '${u.name}')">🗑 Delete user</button>
+          </div>
+          <div id="msg_${u.id}" style="margin-top:8px;font-size:.82rem"></div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleUser(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+async function startCam(uid) {
+  const video = document.getElementById(`cam_${uid}`);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById(`cap_${uid}`).style.display = 'inline-flex';
+  } catch(e) {
+    document.getElementById(`msg_${uid}`).innerHTML = `<span style="color:var(--red)">Camera access denied</span>`;
+  }
+}
+
+async function captureCam(uid) {
+  const video  = document.getElementById(`cam_${uid}`);
+  const canvas = document.getElementById(`cv_${uid}`);
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(async blob => {
+    const fd = new FormData();
+    fd.append('file', blob, 'frame.jpg');
+    try {
+      const r = await fetch(`/api/users/${uid}/embeddings`, {method:'POST', body:fd});
+      const j = await r.json();
+      const msg = document.getElementById(`msg_${uid}`);
+      if (r.ok) {
+        msg.innerHTML = `<span style="color:var(--green)">Saved! ${j.embedding_count} angle(s) total.</span>`;
+        loadUsers();
+      } else {
+        msg.innerHTML = `<span style="color:var(--red)">${j.detail || 'Error'}</span>`;
+      }
+    } catch(e) {
+      document.getElementById(`msg_${uid}`).innerHTML = `<span style="color:var(--red)">Network error</span>`;
+    }
+  }, 'image/jpeg', 0.92);
+}
+
+async function deleteUser(uid, name) {
+  if (!confirm(`Delete user "${name}"? This removes all their face data.`)) return;
+  await api('DELETE', `/api/users/${uid}`);
+  loadUsers();
+}
+
+// ── face id add user ──────────────────────────────────────────────────────────
+const FID_STEPS = [
+  {label:'Look straight ahead',       arrow:'◎'},
+  {label:'Turn slightly right',        arrow:'→'},
+  {label:'Turn slightly left',         arrow:'←'},
+  {label:'Tilt slightly up',           arrow:'↑'},
+  {label:'Tilt slightly down',         arrow:'↓'},
+  {label:'Any comfortable angle',      arrow:'↗'},
+];
+let _fidStep = 0;
+let _fidBlobs = [];
+let _fidStream = null;
+let _fidUid = '';
+let _fidName = '';
+
+async function fidStart() {
+  const uid  = document.getElementById('fid-uid').value.trim();
+  const name = document.getElementById('fid-name').value.trim();
+  const err  = document.getElementById('fid-form-err');
+  if (!uid || !name) { showAlert(err, 'Both fields are required'); return; }
+
+  try {
+    const r = await fetch('/api/users', {method:'POST', body: (() => {const f=new FormData();f.append('user_id',uid);f.append('name',name);return f;})()});
+    if (!r.ok) { const j = await r.json(); showAlert(err, j.detail || 'Error'); return; }
+  } catch(e) { showAlert(err, 'Network error'); return; }
+
+  _fidUid  = uid;
+  _fidName = name;
+  _fidStep = 0;
+  _fidBlobs = [];
+  document.getElementById('fid-form').style.display = 'none';
+  document.getElementById('fid-scan').style.display = 'block';
+  await fidStartCam();
+  fidRenderStep();
+}
+
+async function fidStartCam() {
+  const video = document.getElementById('fid-video');
+  try {
+    _fidStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480}});
+    video.srcObject = _fidStream;
+  } catch(e) {
+    document.getElementById('fid-scan-msg').innerHTML = `<span style="color:var(--red)">Camera access denied. Check browser permissions.</span>`;
+  }
+}
+
+function fidRenderStep() {
+  const step = FID_STEPS[_fidStep];
+  document.getElementById('fid-step-label').textContent = step.label;
+  document.getElementById('fid-arrow').textContent = step.arrow;
+  document.getElementById('fid-scan-msg').textContent = '';
+
+  // dots
+  const dots = document.getElementById('fid-dots');
+  dots.innerHTML = FID_STEPS.map((_, i) =>
+    `<div class="step-dot ${i < _fidStep ? 'done' : i === _fidStep ? 'active' : ''}"></div>`
+  ).join('');
+
+  // progress ring
+  const pct   = _fidStep / FID_STEPS.length;
+  const perim = 2 * Math.PI * (74 + 92) / 2;   // approx ellipse circumference
+  document.getElementById('fid-ring').setAttribute('stroke-dasharray',
+    `${Math.round(perim * pct)} 9999`);
+}
+
+async function fidCapture() {
+  const video  = document.getElementById('fid-video');
+  const canvas = document.getElementById('fid-canvas');
+  const btn    = document.getElementById('fid-capture-btn');
+  const msg    = document.getElementById('fid-scan-msg');
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  // flash
+  const flash = document.getElementById('fid-flash');
+  flash.style.opacity = '0.8';
+  setTimeout(() => flash.style.opacity = '0', 200);
+
+  btn.disabled = true;
+  msg.innerHTML = '<span class="spinner"></span> Checking face…';
+
+  await new Promise(res => canvas.toBlob(async blob => {
+    const fd = new FormData();
+    fd.append('file', blob, 'frame.jpg');
+    try {
+      const r = await fetch('/api/face-check', {method:'POST', body:fd});
+      const j = await r.json();
+      if (!j.face_detected) {
+        msg.innerHTML = `<span style="color:var(--red)">No face detected — centre your face and try again</span>`;
+        btn.disabled = false;
+        res();
+        return;
+      }
+      _fidBlobs.push(blob);
+
+      // Send to embeddings endpoint
+      const fd2 = new FormData();
+      fd2.append('file', blob, 'frame.jpg');
+      const r2 = await fetch(`/api/users/${_fidUid}/embeddings`, {method:'POST', body:fd2});
+      const j2 = await r2.json();
+
+      if (!r2.ok) {
+        msg.innerHTML = `<span style="color:var(--orange)">${j2.detail} — try a different angle</span>`;
+        btn.disabled = false;
+        res();
+        return;
+      }
+
+      _fidStep++;
+      if (_fidStep >= FID_STEPS.length) {
+        fidDone();
+      } else {
+        fidRenderStep();
+        msg.innerHTML = `<span style="color:var(--green)">✓ Captured (${_fidStep}/${FID_STEPS.length})</span>`;
+        btn.disabled = false;
+      }
+    } catch(e) {
+      msg.innerHTML = `<span style="color:var(--red)">Error — try again</span>`;
+      btn.disabled = false;
+    }
+    res();
+  }, 'image/jpeg', 0.92));
+}
+
+function fidDone() {
+  if (_fidStream) { _fidStream.getTracks().forEach(t => t.stop()); _fidStream = null; }
+  document.getElementById('fid-scan').style.display = 'none';
+  document.getElementById('fid-done').style.display = 'block';
+  document.getElementById('fid-done-msg').textContent =
+    `${_fidName} · ${_fidUid} — ${_fidBlobs.length} angle(s) saved`;
+}
+
+function fidCancel() {
+  if (_fidStream) { _fidStream.getTracks().forEach(t => t.stop()); _fidStream = null; }
+  // delete user that was created
+  fetch(`/api/users/${_fidUid}`, {method:'DELETE'}).catch(()=>{});
+  fidReset();
+}
+
+function fidReset() {
+  _fidStep = 0; _fidBlobs = []; _fidUid = ''; _fidName = '';
+  document.getElementById('fid-form').style.display = 'block';
+  document.getElementById('fid-scan').style.display = 'none';
+  document.getElementById('fid-done').style.display = 'none';
+  document.getElementById('fid-uid').value  = '';
+  document.getElementById('fid-name').value = '';
+  document.getElementById('fid-form-err').style.display = 'none';
+}
+
+// ── sessions ──────────────────────────────────────────────────────────────────
+async function loadSessions() {
+  const el = document.getElementById('sessions-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  const recs = await api('GET', '/api/recordings');
+  if (!recs.length) { el.innerHTML = '<div class="empty">No recordings yet</div>'; return; }
+  el.innerHTML = recs.map(r => {
+    const start  = r.start_time ? fmtDateTime(r.start_time) : '—';
+    const dur    = (r.start_time && r.end_time)
+      ? durStr(r.start_time, r.end_time) : 'ongoing';
+    const names  = [...new Set(r.events.map(e => e.user_name || e.user_id || 'Unknown'))].join(', ') || '—';
+    const snap   = r.events.map(e => {
+      const badge = e.user_id
+        ? `<div class="snap-label" style="color:var(--green)">${e.user_name || e.user_id}</div>`
+        : `<div class="snap-label" style="color:var(--orange)">Unknown</div>`;
+      const t = (e.first_seen && e.last_seen)
+        ? `${fmtTime(e.first_seen)} – ${fmtTime(e.last_seen)}` : '';
+      const reanaBtn = !e.user_id && r.video_exists
+        ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:4px 8px;margin-top:4px" onclick="reanalyseOne(${e.id}, this)">🔄 Re-ID</button>` : '';
+      if (e.snapshot_exists) {
+        return `<div class="snap-card">
+          <img src="/snapshot/${e.snapshot_path}" loading="lazy" alt="">
+          ${badge}<div class="snap-time">${t}</div>${reanaBtn}
+        </div>`;
+      }
+      return `<div class="snap-card">
+        <div style="width:140px;height:140px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">no snap</div>
+        ${badge}<div class="snap-time">${t}</div>${reanaBtn}
+      </div>`;
+    }).join('');
+    const video = r.video_exists
+      ? `<div style="margin-top:12px"><div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Scene recording</div>
+         <video controls style="width:100%;border-radius:var(--radius);background:#000" src="/video/${r.video_path}"></video>
+         <div style="font-size:.72rem;color:var(--muted);margin-top:4px">${r.video_path}</div></div>`
+      : `<div style="color:var(--muted);font-size:.8rem;margin-top:8px">Video file not found</div>`;
+    return `<div class="rec-item">
+      <div class="rec-head" onclick="toggleRec('rec_${r.id}')">
+        <span class="rec-icon">📹</span>
+        <div class="rec-info">
+          <div class="rec-time">${start}</div>
+          <div class="rec-meta">${dur} · ${r.events.length} person(s): ${names}</div>
+        </div>
+        <span style="color:var(--muted)">›</span>
+      </div>
+      <div class="rec-body" id="rec_${r.id}">
+        <div class="snap-grid">${snap}</div>
+        ${video}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRec(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+async function reanalyseOne(eventId, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  try {
+    const r = await api('POST', `/api/events/${eventId}/reanalyse`);
+    btn.textContent = r.user_name ? `✓ ${r.user_name}` : '✓ Unknown';
+    btn.style.color = r.user_id ? 'var(--green)' : 'var(--orange)';
+  } catch(e) {
+    btn.textContent = '✗ Error';
+    btn.disabled = false;
+  }
+}
+
+async function reanalyseAll(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Running…';
+  try {
+    const recs   = await api('GET', '/api/recordings');
+    const unknowns = recs.flatMap(r => r.events.filter(e => !e.user_id && r.video_exists).map(e => e.id));
+    for (const id of unknowns) {
+      await api('POST', `/api/events/${id}/reanalyse`).catch(()=>{});
+    }
+    btn.textContent = `✓ Done (${unknowns.length})`;
+    loadSessions();
+  } catch(e) {
+    btn.textContent = '✗ Error';
+  }
+  btn.disabled = false;
+}
+
+async function clearAll() {
+  if (!confirm('Delete all recordings and events?')) return;
+  await api('DELETE', '/api/recordings/all');
+  loadSessions();
+}
+
+// ── logs ──────────────────────────────────────────────────────────────────────
+function startLog(file) {
+  _currentLog = file;
+  if (_logSse) _logSse.close();
+  const box = document.getElementById('log-box');
+  box.innerHTML = '';
+  document.getElementById('log-caption').textContent = `logs/${file === 'stream' ? 'stream.log' : 'analyser.log'}  — live tail`;
+
+  _logSse = new EventSource(`/logs/stream?file=${file}`);
+  _logSse.onmessage = e => {
+    const line = JSON.parse(e.data);
+    const div  = document.createElement('div');
+    div.className = 'log-line ' + logClass(line);
+    div.textContent = line;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  };
+  _logSse.onerror = () => {
+    setTimeout(() => { if (_logSse) startLog(_currentLog); }, 3000);
+  };
+}
+
+function switchLog(file) {
+  document.getElementById('log-tab-stream').classList.toggle('active', file === 'stream');
+  document.getElementById('log-tab-analyser').classList.toggle('active', file === 'analyser');
+  startLog(file);
+}
+
+async function clearLog() {
+  if (!confirm(`Clear ${_currentLog}.log?`)) return;
+  await api('DELETE', `/logs/${_currentLog}`);
+  document.getElementById('log-box').innerHTML = '';
+}
+
+function logClass(line) {
+  if (/\[ERROR\]|\[CRITI\]/.test(line)) return 'log-error';
+  if (/\[WARN \]/.test(line)) return 'log-warn';
+  if (/\[DEBUG\]/.test(line)) return 'log-debug';
+  return 'log-info';
+}
+
+// ── utils ─────────────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const r = await fetch(url, {method, body});
+  if (r.status === 401) { location.href = '/'; return; }
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString([], {year:'numeric',month:'short',day:'numeric'});
+}
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString([], {month:'short',day:'numeric'}) + ' ' +
+         d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function durStr(a, b) {
+  const sec = Math.round((new Date(b) - new Date(a)) / 1000);
+  return sec >= 60 ? `${Math.floor(sec/60)}m ${sec%60}s` : `${sec}s`;
+}
+function showAlert(el, msg) {
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>

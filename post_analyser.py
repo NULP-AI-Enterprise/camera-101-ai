@@ -393,6 +393,15 @@ class PostAnalyser:
         log.debug("[%s] tracking done — %d track(s)  %d frames  %.1fs  (%.0f fps)",
                   worker, len(tracks), frame_idx, elapsed, proc_fps)
 
+        # Per-track face detection stats — useful for tuning FACE_UPPER_FRAC
+        for tr in tracks.values():
+            attempts = max(1, tr.frame_count // FACE_SAMPLE_RATE)
+            hit_rate = len(tr.embeddings) / attempts
+            log.debug("[%s] track %d: %d frames  %d/%d face hits (%.0f%%)  locked=%s",
+                      worker, tr.track_id, tr.frame_count,
+                      len(tr.embeddings), attempts, hit_rate * 100,
+                      tr.locked_uid or "—")
+
         # ── no persons at all → false positive ───────────────────────────────
         if not tracks:
             log.warning("[%s] no persons detected in %s — deleting  (%.1fs)",
@@ -566,6 +575,10 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
         out_stream.width, out_stream.height, out_stream.pix_fmt = w, h, "yuv420p"
         out_stream.options = {"crf": "22", "preset": "fast"}
 
+        # frame_bboxes are stored in DETECT_WIDTH (640p) coordinate space.
+        # Scale them back to the actual video resolution for drawing.
+        detect_to_video = w / DETECT_WIDTH
+
         last_bbox: dict[int, list[int]] = {}
 
         for fidx, av_frame in enumerate(in_c.decode(in_vid)):
@@ -580,7 +593,11 @@ def _annotate_video(video_path: str, tracks: list[_Track], fps: float) -> None:
                 if not bbox:
                     continue
 
-                x1, y1, x2, y2 = bbox
+                # Scale 640p bbox back to full video resolution
+                x1 = int(bbox[0] * detect_to_video)
+                y1 = int(bbox[1] * detect_to_video)
+                x2 = int(bbox[2] * detect_to_video)
+                y2 = int(bbox[3] * detect_to_video)
                 color = _TRACK_COLORS[tr.track_id % len(_TRACK_COLORS)]
                 cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
@@ -632,25 +649,29 @@ def _try_face(img: np.ndarray, bbox: list,
     """Crop upper body area, run InsightFace, return (emb, sim, uid).
 
     Only the upper FACE_UPPER_FRAC of the detected body bbox is passed to
-    InsightFace — this focuses on the head/shoulder region and avoids
-    confusing the face detector with torso texture.
-    InsightFace det_size=(640,640), so we cap the crop at DETECT_WIDTH px
-    wide; full-HD crops are needlessly slow with zero embedding benefit.
+    InsightFace — focuses on head/shoulder and avoids confusing the detector
+    with torso texture.  InsightFace det_size=(640,640) so we cap at
+    DETECT_WIDTH px; full-HD crops are discarded internally anyway.
     """
     x1, y1, x2, y2 = bbox
     h_box = y2 - y1
-    crop  = img[max(0, y1) : max(0, y1 + int(h_box * FACE_UPPER_FRAC)),
-                max(0, x1) : max(0, x2)]
+    face_y2 = max(0, y1 + int(h_box * FACE_UPPER_FRAC))
+    crop = img[max(0, y1) : face_y2, max(0, x1) : max(0, x2)]
     if crop.size == 0:
+        log.debug("face crop empty for bbox=%s", bbox)
         return None, 0.0, None
     # Cap width — InsightFace internally resizes to 640 anyway
     ch, cw = crop.shape[:2]
     if cw > DETECT_WIDTH:
         crop = cv2.resize(crop, (DETECT_WIDTH, int(ch * DETECT_WIDTH / cw)),
                           interpolation=cv2.INTER_AREA)
+        ch, cw = crop.shape[:2]
     emb = embedder.get_embedding(crop)
     if emb is None:
+        log.debug("no face in %dx%d crop (bbox y=%d–%d x=%d–%d)",
+                  cw, ch, y1, face_y2, x1, x2)
         return None, 0.0, None
+    log.debug("face found in %dx%d crop", cw, ch)
     with db_lock:
         db_copy = list(db_embeddings)
     uid, sim = FaceEmbedder.best_match(emb, db_copy, threshold=0.48)
@@ -973,6 +994,28 @@ class AnalyserDaemon:
                 self._processing.discard(video_path)
 
 
+# ── model warm-up ─────────────────────────────────────────────────────────────
+
+def _warmup_models() -> None:
+    """
+    Run immediately on the min worker thread at startup.
+    Pre-loads InsightFace + YOLO so the first real video doesn't wait.
+    Without this, the first video triggers ~30 s of model loading.
+    """
+    try:
+        log.info("warm-up: loading InsightFace…")
+        _thread_analyser()   # FaceEmbedder + DB embeddings in this thread's _tl
+        log.info("warm-up: InsightFace ready")
+    except Exception as e:
+        log.warning("warm-up InsightFace failed: %s", e)
+    try:
+        log.info("warm-up: loading YOLO…")
+        _thread_yolo()       # yolov8n.pt — downloads once, cached on PVC
+        log.info("warm-up: YOLO ready — worker is fully warm")
+    except Exception as e:
+        log.warning("warm-up YOLO failed: %s", e)
+
+
 # ── standalone entry point ────────────────────────────────────────────────────
 
 def main():
@@ -990,9 +1033,12 @@ def main():
 
     log.info("startup  pid=%d  workers=%d..%d  scale_at=%d",
              os.getpid(), MIN_WORKERS, MAX_WORKERS, SCALE_UP_THRESHOLD)
-    # Models are loaded lazily by each worker thread on first video.
 
     daemon = AnalyserDaemon()
+    # Submit warm-up as first task — the min worker loads both models
+    # immediately, so real videos never wait for cold-start loading.
+    daemon._pool.submit(_warmup_models)
+
     t = threading.Thread(target=daemon.run_forever, daemon=True)
     t.start()
 

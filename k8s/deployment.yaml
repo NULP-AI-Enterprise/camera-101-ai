@@ -71,11 +71,11 @@ spec:
                   key: RTSP_URL
           resources:
             requests:
-              cpu: "1000m"
-              memory: "6Gi"
+              cpu: "3000m"
+              memory: "16Gi"
             limits:
-              cpu: "8000m"
-              memory: "16Gi"    # 4 workers × ~800 Mi + ~1.5 Gi base (server + recorder) + annotation buffer
+              cpu: "6000m"
+              memory: "26Gi"    # 8 workers × ~800 Mi + ~1.5 Gi base + buffer; node: 30.69 Gi / 6000m, no neighbors
           # startupProbe gives the container time to download ML models on
           # first boot (can take 2-3 min). Only after it passes do liveness
           # and readiness probes activate.

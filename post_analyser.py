@@ -47,7 +47,7 @@ log = get_logger("analyser", "analyser.log")
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RAW_EVENTS_DIR   = "raw_events"
 MIN_WORKERS        = int(os.environ.get("ANALYSER_MIN_WORKERS", "1"))
-MAX_WORKERS        = int(os.environ.get("ANALYSER_WORKERS",     "4"))  # each worker ~800 MB; 4 × 800 MB = 3.2 GB on a 32 GB node
+MAX_WORKERS        = int(os.environ.get("ANALYSER_WORKERS",     "8"))  # each worker ~800 MB; 8 × 800 MB = 6.4 GB on a 30 Gi node
 SCALE_UP_THRESHOLD = int(os.environ.get("SCALE_UP_THRESHOLD",  "2"))
 WORKER_IDLE_SECS   = float(os.environ.get("WORKER_IDLE_SECS",  "180"))
 SNAPSHOTS_DIR    = "snapshots"

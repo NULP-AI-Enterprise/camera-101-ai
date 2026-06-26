@@ -45,8 +45,10 @@ STREAM_FPS        = 25.0
 DETECT_WIDTH      = 480          # width for MOG2 processing (saves CPU)
 MIN_MOTION_FRAC        = 0.009   # area of the largest blob as fraction of MOG2-frame area
 MOTION_CONFIRM_FRAMES  = 5       # consecutive frames the blob must persist before recording
-MIN_BLOB_HEIGHT_FRAC   = 0.15    # blob bounding-box height ≥ 15 % of frame height
-                                  # rejects small-area repetitive sources (3D printer, fan, LED)
+MIN_BLOB_HEIGHT_FRAC   = float(os.environ.get("MIN_BLOB_HEIGHT_PCT", "8")) / 100
+                                  # blob bounding-box height ≥ N % of frame height (default 8 %)
+                                  # rejects small repetitive sources (3D printer, fan)
+                                  # tune via env var: MIN_BLOB_HEIGHT_PCT=10 for stricter filter
 RECORD_EVERY           = 2       # write every Nth frame to H.264 — halves encoder load
                                   # at 25 fps → effective 12.5 fps recording (fine for ID)
 COOLDOWN_SECS     = 5.0          # silence before closing a recording
@@ -189,6 +191,9 @@ class MotionRecorder:
             area_ok   = blob_area >= small.shape[0] * small.shape[1] * MIN_MOTION_FRAC
             height_ok = blob_h    >= small.shape[0] * MIN_BLOB_HEIGHT_FRAC
             is_motion = area_ok and height_ok
+            if area_ok and not height_ok:
+                log.debug("motion suppressed: blob_h=%dpx (%.1f%% of %dpx frame) — raise MIN_BLOB_HEIGHT_PCT to detect larger objects only",
+                          blob_h, blob_h / small.shape[0] * 100, small.shape[0])
 
         now_mono = time.monotonic()
         now_wall = datetime.datetime.now()
@@ -278,7 +283,13 @@ CONNECT_RETRY_SECS = 5
 
 
 def main():
-    log.info("startup  pid=%d", os.getpid())
+    log.info(
+        "startup  pid=%d  blob_height_min=%.0f%%  confirm_frames=%d  motion_frac=%.3f",
+        os.getpid(),
+        MIN_BLOB_HEIGHT_FRAC * 100,
+        MOTION_CONFIRM_FRAMES,
+        MIN_MOTION_FRAC,
+    )
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
 

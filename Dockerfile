@@ -22,7 +22,7 @@ RUN /venv/bin/pip install --no-cache-dir -r requirements.txt
 FROM python:3.11-slim AS runner
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgomp1 libglib2.0-0 libsm6 libxext6 libgl1 ffmpeg wget \
+    libgomp1 libglib2.0-0 libsm6 libxext6 libgl1 ffmpeg wget tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --gid 1000 appgroup && \
@@ -39,10 +39,9 @@ USER appuser
 ENV PATH="/venv/bin:$PATH" \
     HOME=/home/appuser \
     PYTHONUNBUFFERED=1 \
-    STREAMLIT_SERVER_HEADLESS=true \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    TZ=Europe/Kyiv \
+    LOG_TZ_OFFSET=3 \
     # Models download to the PVC on first run and persist across restarts.
-    # InsightFace (~100 MB buffalo_s) and YOLO (~6 MB yolov8n.pt) land in /data.
     INSIGHTFACE_HOME=/data/.insightface \
     YOLO_CONFIG_DIR=/data/.ultralytics
 

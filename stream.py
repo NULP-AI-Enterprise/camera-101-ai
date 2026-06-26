@@ -28,6 +28,18 @@ log = get_logger("recorder", "stream.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RTSP_URL         = os.environ["RTSP_URL"]   # required — set in k8s secret or .env
+
+# Mask credentials in log output: rtsp://user:pass@host → rtsp://***@host
+def _masked_url(url: str) -> str:
+    try:
+        from urllib.parse import urlparse, urlunparse
+        p = urlparse(url)
+        if p.username or p.password:
+            host = p.hostname + (f":{p.port}" if p.port else "")
+            return urlunparse(p._replace(netloc=f"***@{host}"))
+    except Exception:
+        pass
+    return url
 STREAM_FPS       = 25.0
 DETECT_WIDTH     = 480          # width for MOG2 processing (saves CPU)
 MIN_MOTION_PX    = 2000         # changed-pixel threshold (~human-sized motion)
@@ -198,7 +210,7 @@ class MotionRecorder:
         self._rec_path  = path
         self._rec_start = now
         self._recording = True
-        log.info("MOTION START → %s  (%dx%d)", os.path.basename(path), w, h)
+        log.info("MOTION START → %s  res=%dx%d", os.path.basename(path), w, h)
 
     def _stop(self, now: datetime.datetime) -> None:
         self._recording = False
@@ -256,7 +268,7 @@ def _run() -> None:
     container = None
     while not _shutdown.is_set():
         try:
-            log.info("connecting to %s …", RTSP_URL)
+            log.info("connecting to %s …", _masked_url(RTSP_URL))
             container = av.open(RTSP_URL, options=opts)
             break
         except Exception as e:
@@ -317,8 +329,10 @@ def _run() -> None:
                 fps_count, fps_t0 = 0, t
 
             if frame_idx % LOG_FPS_EVERY == 0:
-                log.debug("live  %.1f fps  frame=%d  recording=%s",
-                          fps_disp, frame_idx, is_rec)
+                state = "REC" if is_rec else "IDLE"
+                log.debug("stream  %.1f fps  frame=%d  state=%s  preview_ok=%s",
+                          fps_disp, frame_idx, state,
+                          os.path.exists(PREVIEW_PATH))
 
             if frame_idx % PREVIEW_EVERY == 0:
                 label = "REC" if is_rec else "LIVE"

@@ -16,7 +16,7 @@ SESSION_TOKEN: str | None = (
 # ── paths ────────────────────────────────────────────────────────────────────
 APP_DIR      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_DATA    = "/data"
-PREVIEW_PATH = "stream_preview.tmp.jpg"   # relative to CWD=/data
+PREVIEW_PATH = "stream_preview.jpg"   # relative to CWD=/data — written atomically by stream.py
 PID_FILE     = "stream.pid"
 ANALYSER_PID = "analyser.pid"
 STATE_FILE   = "module_state.json"

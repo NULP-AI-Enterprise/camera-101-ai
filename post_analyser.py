@@ -337,9 +337,11 @@ class PostAnalyser:
         Returns True  — valid persons found (Recording saved to DB).
         Returns False — false positive (file deleted).
         """
-        basename = os.path.basename(video_path)
-        t0 = time.monotonic()
-        log.info("analysing %s …", basename)
+        basename  = os.path.basename(video_path)
+        file_mb   = os.path.getsize(video_path) / 1_048_576 if os.path.exists(video_path) else 0
+        worker    = threading.current_thread().name
+        t0        = time.monotonic()
+        log.info("[%s] analysing %s  (%.1f MB)", worker, basename, file_mb)
 
         with self._db_lock:
             db_copy = list(self._db)
@@ -357,12 +359,15 @@ class PostAnalyser:
             log.error("tracking error on %s: %s", basename, e)
             return False
 
-        elapsed = time.monotonic() - t0
-        log.debug("tracking done — %d track(s)  %d frames  %.1fs", len(tracks), frame_idx, elapsed)
+        elapsed  = time.monotonic() - t0
+        proc_fps = frame_idx / elapsed if elapsed > 0 else 0
+        log.debug("[%s] tracking done — %d track(s)  %d frames  %.1fs  (%.0f fps)",
+                  worker, len(tracks), frame_idx, elapsed, proc_fps)
 
         # ── no persons at all → false positive ───────────────────────────────
         if not tracks:
-            log.warning("no persons in %s — deleting", basename)
+            log.warning("[%s] no persons detected in %s — deleting  (%.1fs)",
+                        worker, basename, time.monotonic() - t0)
             _remove_file(video_path)
             return False
 
@@ -387,7 +392,8 @@ class PostAnalyser:
             valid.append(tr)
 
         if not valid:
-            log.warning("all tracks filtered (noise) — deleting %s", basename)
+            log.warning("[%s] all tracks filtered as noise — deleting %s  (%.1fs)",
+                        worker, basename, time.monotonic() - t0)
             _remove_file(video_path)
             return False
 
@@ -397,7 +403,11 @@ class PostAnalyser:
 
         _annotate_video(video_path, valid, fps)
         self._write_db(video_path, valid, start, end, fps)
-        log.info("done  %s  %.1fs total", basename, time.monotonic() - t0)
+        names_str = ", ".join(
+            tr.locked_uid or f"unknown#{tr.track_id}" for tr in valid
+        )
+        log.info("[%s] ✓ %s  %d person(s): %s  %.1fs",
+                 worker, basename, len(valid), names_str, time.monotonic() - t0)
         return True
 
     # ── sync per-event re-analysis (admin "Re-analyze" button) ───────────────
@@ -473,8 +483,8 @@ class PostAnalyser:
                         last_seen     = last_seen,
                         snapshot_path = snap_path,
                     ))
-            names = [tr.locked_uid or "unknown" for tr in tracks]
-            log.info("recording #%d saved — %d person(s): %s — %s",
+            names = [tr.locked_uid or f"unknown#{tr.track_id}" for tr in tracks]
+            log.info("DB recording #%d saved — %d person(s): %s  ← %s",
                      rec_id, len(tracks), ", ".join(names), os.path.basename(video_path))
         except Exception as e:
             log.error("DB error: %s", e)

@@ -1,10 +1,10 @@
 """Cookie-based session auth: /login and /logout endpoints."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Cookie, HTTPException, Form, Response
+from fastapi import APIRouter, Cookie, HTTPException, Form, Request, Response
 from fastapi.responses import JSONResponse
 
-from .deps import AUTH_USER, AUTH_PASS, SESSION_TOKEN
+from .deps import AUTH_USER, AUTH_PASS, SESSION_TOKEN, limiter
 
 router = APIRouter()
 
@@ -19,7 +19,8 @@ def is_authed(session: str = Cookie(default="")) -> bool:
 
 
 @router.post("/login")
-async def login(username: str = Form(""), password: str = Form("")):
+@limiter.limit("10/minute")
+async def login(request: Request, username: str = Form(""), password: str = Form("")):
     if not AUTH_USER or (username == AUTH_USER and password == AUTH_PASS):
         resp = JSONResponse({"ok": True})
         resp.set_cookie(

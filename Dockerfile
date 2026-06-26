@@ -51,6 +51,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD wget -qO- http://localhost:8501/health || exit 1
 
 # CWD=/data (PVC) — relative paths (people.db, raw_events/, logs, models) resolve there
-CMD ["sh", "-c", "cd /data && exec uvicorn server:app \
+# alembic upgrade head runs any pending schema migrations before the server starts.
+CMD ["sh", "-c", "cd /data && DATABASE_URL=sqlite:////data/people.db \
+     alembic --config /app/alembic.ini upgrade head && \
+     exec uvicorn server:app \
      --host 0.0.0.0 --port 8501 --workers 1 \
      --app-dir /app --no-access-log"]

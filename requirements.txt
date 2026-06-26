@@ -16,11 +16,14 @@ onnxruntime>=1.17
 ultralytics>=8.2
 lapx>=0.5.5      # ByteTrack linear assignment (provides `import lap` compat)
 scipy>=1.11      # Hungarian assignment (linear_sum_assignment) for IOUTracker
+pytest>=8.0      # test suite
 
 # ── Database ──────────────────────────────────────────────────────────────────
 sqlalchemy>=2.0
+alembic>=1.13     # schema migrations (upgrade head runs in Dockerfile CMD)
 
 # ── Web server ────────────────────────────────────────────────────────────────
 fastapi>=0.111
 uvicorn[standard]>=0.30
 python-multipart>=0.0.9
+slowapi>=0.1.9      # rate limiting for /login brute-force protection

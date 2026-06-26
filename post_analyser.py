@@ -57,7 +57,9 @@ FACE_UPPER_FRAC  = 0.60     # crop upper 60% of bbox (head + shoulders area)
 DETECT_WIDTH     = 640      # resize for detection (Vision or YOLO)
 BODY_CONF_THRESH = 0.40     # Vision body confidence gate
 DETECT_EVERY     = 5        # run body detector every N frames (interpolate in between)
-RAW_EVENTS_MAX_AGE_HOURS = float(os.environ.get("RAW_EVENTS_MAX_AGE_HOURS", "24"))
+RAW_EVENTS_MAX_AGE_HOURS  = float(os.environ.get("RAW_EVENTS_MAX_AGE_HOURS",  "24"))
+RECORDINGS_MAX_AGE_HOURS  = float(os.environ.get("RECORDINGS_MAX_AGE_HOURS", "168"))  # 7 days
+RECORDINGS_DIR            = "recordings"
 
 _TRACKER_CFG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "bytetrack_custom.yaml")
@@ -125,6 +127,7 @@ class _Track:
     embeddings:  list              = field(default_factory=list)
     locked_uid:  Optional[str]     = None
     best_sim:    float             = 0.0
+    snap_path:   Optional[str]     = None   # saved during tracking pass (no extra video open)
 
 
 # ── Apple Vision detector (lazy singleton) ───────────────────────────────────
@@ -218,6 +221,7 @@ def _analyse_with_vision(video_path: str,
                     track_id    = tid,
                     first_frame = frame_idx,
                     bbox_first  = list(bbox),
+                    snap_path   = _save_snapshot_inline(img, list(bbox), tid),
                 )
             tr = tracks[tid]
             tr.frame_count += 1
@@ -277,6 +281,7 @@ def _analyse_with_yolo(video_path: str,
                     track_id    = tid,
                     first_frame = frame_idx,
                     bbox_first  = bbox.tolist(),
+                    snap_path   = _save_snapshot_inline(img, bbox.tolist(), tid),
                 )
             tr = tracks[tid]
             tr.frame_count += 1
@@ -475,7 +480,8 @@ class PostAnalyser:
                         seconds=tr.first_frame / fps)
                     last_seen  = start + datetime.timedelta(
                         seconds=tr.last_frame  / fps)
-                    snap_path  = _extract_snapshot(video_path, tr, rec_id)
+                    # Snapshot already saved during tracking pass — no extra video open needed
+                    snap_path = tr.snap_path
                     db.add(PersonEvent(
                         recording_id  = rec_id,
                         user_id       = tr.locked_uid,
@@ -597,6 +603,24 @@ def _try_face(img: np.ndarray, bbox: list,
         db_copy = list(db_embeddings)
     uid, sim = FaceEmbedder.best_match(emb, db_copy, threshold=0.48)
     return emb, sim, uid
+
+
+def _save_snapshot_inline(img: np.ndarray, bbox: list, track_id: int) -> Optional[str]:
+    """Save a person crop during the tracking pass — avoids a third video open."""
+    try:
+        x1, y1, x2, y2 = bbox
+        h, w = img.shape[:2]
+        pad  = max(4, int((y2 - y1) * 0.08))
+        crop = img[max(0, y1 - pad):min(h, y2 + pad),
+                   max(0, x1 - pad):min(w, x2 + pad)]
+        if crop.size == 0:
+            return None
+        os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
+        path = os.path.join(SNAPSHOTS_DIR, f"snap_tid{track_id}_inline.jpg")
+        return path if cv2.imwrite(path, crop) else None
+    except Exception as e:
+        log.debug("inline snapshot error: %s", e)
+        return None
 
 
 def _remove_file(path: str) -> None:
@@ -759,23 +783,58 @@ class AnalyserDaemon:
             self._pool.submit(self._worker, video)
 
     def _cleanup_old_files(self) -> None:
-        """Remove processed MP4s and orphaned .ready markers older than RAW_EVENTS_MAX_AGE_HOURS."""
-        cutoff = time.time() - RAW_EVENTS_MAX_AGE_HOURS * 3600
+        """Remove old raw_events, recordings, snapshots and orphaned DB rows."""
+        self._cleanup_dir(RAW_EVENTS_DIR,  RAW_EVENTS_MAX_AGE_HOURS,  skip=self._processing)
+        self._cleanup_recordings(RECORDINGS_MAX_AGE_HOURS)
+
+    def _cleanup_dir(self, directory: str, max_age_hours: float,
+                     skip: set | None = None) -> None:
+        cutoff = time.time() - max_age_hours * 3600
         try:
-            entries = os.listdir(RAW_EVENTS_DIR)
+            entries = os.listdir(directory)
         except FileNotFoundError:
             return
         for name in entries:
-            path = os.path.join(RAW_EVENTS_DIR, name)
-            # Skip files currently being processed
-            if path in self._processing or path.rstrip(".ready") in self._processing:
+            path = os.path.join(directory, name)
+            if skip and (path in skip or path.removesuffix(".ready") in skip):
                 continue
             try:
                 if os.path.getmtime(path) < cutoff:
                     os.remove(path)
-                    log.info("retention: removed old file %s", name)
+                    log.info("retention: removed %s", path)
             except OSError:
                 pass
+
+    def _cleanup_recordings(self, max_age_hours: float) -> None:
+        """Delete old recording videos + their snapshots + DB rows."""
+        cutoff_ts = time.time() - max_age_hours * 3600
+        import datetime as _dt
+        cutoff_dt = _dt.datetime.fromtimestamp(cutoff_ts)
+        try:
+            with get_session() as db:
+                old_recs = (db.query(Recording)
+                            .filter(Recording.start_time < cutoff_dt)
+                            .all())
+                for rec in old_recs:
+                    events = db.query(PersonEvent).filter_by(recording_id=rec.id).all()
+                    for ev in events:
+                        if ev.snapshot_path and os.path.exists(ev.snapshot_path):
+                            try:
+                                os.remove(ev.snapshot_path)
+                            except OSError:
+                                pass
+                        db.delete(ev)
+                    if rec.video_path and os.path.exists(rec.video_path):
+                        try:
+                            os.remove(rec.video_path)
+                        except OSError:
+                            pass
+                    db.delete(rec)
+                if old_recs:
+                    log.info("retention: removed %d recording(s) older than %.0fh",
+                             len(old_recs), max_age_hours)
+        except Exception as e:
+            log.error("retention cleanup error: %s", e)
 
     def _worker(self, video_path: str) -> None:
         try:

@@ -10,10 +10,12 @@ import os
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import HTMLResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from api.auth import is_authed, router as auth_router
 from api.control import router as control_router, watchdog_start
-from api.deps import APP_DIR
+from api.deps import APP_DIR, limiter
 from api.media import router as media_router
 from api.recordings import router as recordings_router
 from api.users import router as users_router
@@ -22,6 +24,8 @@ from log_setup import get_logger
 log = get_logger("server", "server.log")
 
 app = FastAPI(docs_url=None, redoc_url=None)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth_router)
 app.include_router(control_router, prefix="/api")

@@ -1,9 +1,14 @@
-"""Shared dependencies: config constants, auth token, lazy embedder."""
+"""Shared dependencies: config constants, auth token, lazy embedder, rate limiter."""
 from __future__ import annotations
 
 import hashlib
 import os
 import threading
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 AUTH_USER = os.environ.get("AUTH_USERNAME", "")
 AUTH_PASS = os.environ.get("AUTH_PASSWORD", "")

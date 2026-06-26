@@ -32,7 +32,7 @@ class FaceEmbedder:
                 root=_MODEL_ROOT,
                 providers=["CPUExecutionProvider"],
             )
-            self._app.prepare(ctx_id=0, det_size=(320, 320))
+            self._app.prepare(ctx_id=0, det_size=(640, 640))
 
     # ------------------------------------------------------------------
 

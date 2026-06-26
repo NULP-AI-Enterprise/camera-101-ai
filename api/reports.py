@@ -311,7 +311,11 @@ def _concat_ffmpeg(paths: list[str], out_path: str) -> None:
     try:
         with os.fdopen(fd, "w") as f:
             for p in paths:
-                escaped = p.replace("\\", "\\\\").replace("'", "\\'")
+                # ffmpeg resolves concat-list entries relative to the list
+                # file itself (which lives in /tmp), so we must use absolute
+                # paths or the files won't be found.
+                abs_p = os.path.abspath(p)
+                escaped = abs_p.replace("\\", "\\\\").replace("'", "\\'")
                 f.write(f"file '{escaped}'\n")
 
         if os.path.exists(out_path):

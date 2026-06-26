@@ -23,6 +23,7 @@ Run standalone:
 """
 from __future__ import annotations
 
+import concurrent.futures
 import datetime
 import os
 import signal
@@ -45,6 +46,7 @@ log = get_logger("analyser", "analyser.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RAW_EVENTS_DIR   = "raw_events"
+ANALYSER_WORKERS = int(os.environ.get("ANALYSER_WORKERS", "3"))
 SNAPSHOTS_DIR    = "snapshots"
 PID_FILE         = "analyser.pid"
 POLL_INTERVAL    = 2.0      # seconds between folder scans
@@ -57,6 +59,43 @@ BODY_CONF_THRESH = 0.40     # Vision body confidence gate
 
 _TRACKER_CFG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "bytetrack_custom.yaml")
+
+# ── per-thread model cache ────────────────────────────────────────────────────
+# Each worker thread keeps its own FaceEmbedder + YOLO so they never share
+# mutable inference state.  Models are loaded lazily on first use.
+_tl = threading.local()
+
+
+def _thread_embedder() -> FaceEmbedder:
+    if not hasattr(_tl, "embedder"):
+        log.info("worker %s: loading embedder…", threading.current_thread().name)
+        _tl.embedder = FaceEmbedder()
+    return _tl.embedder
+
+
+def _thread_yolo():
+    if not hasattr(_tl, "yolo"):
+        from ultralytics import YOLO
+        log.info("worker %s: loading YOLO…", threading.current_thread().name)
+        _tl.yolo = YOLO("yolov8n.pt")
+    else:
+        # Reset predictor so ByteTrack tracker state doesn't bleed between videos
+        _tl.yolo.predictor = None
+    return _tl.yolo
+
+
+def _thread_analyser() -> "PostAnalyser":
+    """Return a per-thread PostAnalyser; reload DB embeddings on each call."""
+    if not hasattr(_tl, "analyser"):
+        embedder = _thread_embedder()
+        with get_session() as db:
+            rows = db.query(UserFeature).all()
+            db_embs = [(r.user_id, bytes_to_emb(r.embedding)) for r in rows]
+        _tl.analyser = PostAnalyser(embedder, db_embs)
+        log.info("worker %s: ready", threading.current_thread().name)
+    else:
+        _tl.analyser.reload_db()
+    return _tl.analyser
 
 
 # ── per-track accumulator ─────────────────────────────────────────────────────
@@ -208,8 +247,7 @@ def _analyse_with_yolo(video_path: str,
     """
     YOLO v8n + ByteTrack tracking (used when torch/ultralytics is available).
     """
-    from ultralytics import YOLO
-    model      = YOLO("yolov8n.pt")
+    model      = _thread_yolo()
     tracks:    dict[int, _Track] = {}
     frame_idx: int               = 0
     cfg = _TRACKER_CFG if os.path.exists(_TRACKER_CFG) else "bytetrack.yaml"
@@ -650,55 +688,71 @@ def _extract_snapshot(video_path: str, tr: _Track, rec_id: int) -> Optional[str]
 
 class AnalyserDaemon:
     """
-    Polls raw_events/ every POLL_INTERVAL seconds.
-    Picks up .mp4.ready marker files left by Module A (stream.py).
+    Polls raw_events/ every POLL_INTERVAL seconds and dispatches videos to a
+    thread pool so ANALYSER_WORKERS videos are analysed concurrently.
+    Each worker thread owns its own FaceEmbedder + YOLO instance.
     """
 
-    def __init__(self, analyser: PostAnalyser):
-        self._analyser   = analyser
+    def __init__(self) -> None:
         self._stop_event = threading.Event()
         self._processing: set[str] = set()
+        self._lock       = threading.Lock()
+        self._pool       = concurrent.futures.ThreadPoolExecutor(
+            max_workers=ANALYSER_WORKERS,
+            thread_name_prefix="analyser",
+        )
 
     def run_forever(self) -> None:
         os.makedirs(RAW_EVENTS_DIR, exist_ok=True)
-        log.info("watching %s/  (poll interval %.1fs)", RAW_EVENTS_DIR, POLL_INTERVAL)
+        log.info("watching %s/  (poll %.1fs  workers=%d)",
+                 RAW_EVENTS_DIR, POLL_INTERVAL, ANALYSER_WORKERS)
         while not self._stop_event.is_set():
             self._scan()
             self._stop_event.wait(POLL_INTERVAL)
 
     def stop(self) -> None:
         self._stop_event.set()
+        self._pool.shutdown(wait=False, cancel_futures=False)
 
     def _scan(self) -> None:
         try:
             entries = sorted(os.listdir(RAW_EVENTS_DIR))
         except FileNotFoundError:
             return
+
         for name in entries:
             if not name.endswith(".mp4.ready"):
                 continue
             marker = os.path.join(RAW_EVENTS_DIR, name)
             video  = marker[: -len(".ready")]
-            if video in self._processing:
-                continue
-            if not os.path.exists(video):
+
+            with self._lock:
+                if video in self._processing:
+                    continue
+                if not os.path.exists(video):
+                    try:
+                        os.remove(marker)
+                    except OSError:
+                        pass
+                    continue
                 try:
                     os.remove(marker)
                 except OSError:
-                    pass
-                continue
-            try:
-                os.remove(marker)
-            except OSError:
-                continue
-            self._processing.add(video)
-            log.info("▶ %s", os.path.basename(video))
-            try:
-                self._analyser.analyse(video)
-            except Exception as e:
-                log.error("error processing %s: %s", os.path.basename(video), e)
-            finally:
-                self._processing.discard(video)
+                    continue
+                self._processing.add(video)
+
+            n = len(self._processing)
+            log.info("▶ %s  (active: %d/%d)", os.path.basename(video), n, ANALYSER_WORKERS)
+            self._pool.submit(self._worker, video)
+
+    def _worker(self, video_path: str) -> None:
+        try:
+            _thread_analyser().analyse(video_path)
+        except Exception as e:
+            log.error("worker error on %s: %s", os.path.basename(video_path), e)
+        finally:
+            with self._lock:
+                self._processing.discard(video_path)
 
 
 # ── standalone entry point ────────────────────────────────────────────────────
@@ -716,20 +770,10 @@ def main():
     signal.signal(signal.SIGTERM, _sig)
     signal.signal(signal.SIGINT,  _sig)
 
-    log.info("startup  pid=%d", os.getpid())
-    log.info("loading face embedder…")
-    try:
-        embedder = FaceEmbedder()
-    except Exception as e:
-        log.critical("FaceEmbedder failed: %s — exiting", e)
-        sys.exit(1)
+    log.info("startup  pid=%d  workers=%d", os.getpid(), ANALYSER_WORKERS)
+    # Models are loaded lazily by each worker thread on first video.
 
-    with get_session() as db:
-        rows = db.query(UserFeature).all()
-        db_embeddings = [(r.user_id, bytes_to_emb(r.embedding)) for r in rows]
-    log.info("%d embedding(s) loaded", len(db_embeddings))
-
-    daemon = AnalyserDaemon(PostAnalyser(embedder, db_embeddings))
+    daemon = AnalyserDaemon()
     t = threading.Thread(target=daemon.run_forever, daemon=True)
     t.start()
 

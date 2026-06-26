@@ -240,7 +240,7 @@ class MotionRecorder:
         ts   = now.strftime("%Y%m%d_%H%M%S")
         path = os.path.join(RAW_EVENTS_DIR, f"raw_event_{ts}.mp4")
         h, w = frame.shape[:2]
-        self._writer        = AsyncVideoWriter(path, self._fps, w, h)
+        self._writer        = AsyncVideoWriter(path, self._fps / RECORD_EVERY, w, h)
         self._rec_path      = path
         self._rec_start     = now
         self._rec_frame_idx = 0

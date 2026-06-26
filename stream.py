@@ -218,10 +218,14 @@ class MotionRecorder:
         if not self._writer:
             return
         dur = (now - self._rec_start).total_seconds() if self._rec_start else 0
-        flushed = self._writer.close()
+        flushed = self._writer.close(timeout=120)   # 1080p on busy box can take >30s
         if not flushed:
-            log.error("encoder timed out for %s — skipping analysis (incomplete file)",
+            log.error("encoder timed out for %s — deleting incomplete file",
                       os.path.basename(self._rec_path or ""))
+            try:
+                os.remove(self._rec_path)
+            except OSError:
+                pass
             self._writer = None
             self._rec_path = None
             self._rec_start = None

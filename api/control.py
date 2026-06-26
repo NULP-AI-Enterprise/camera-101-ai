@@ -88,6 +88,11 @@ def _watchdog_loop() -> None:
             if s.get("recorder") and not proc_running(PID_FILE):
                 log.info("watchdog: restarting recorder")
                 start_proc(STREAM_SCRIPT)
+                # Stagger: give the recorder 10 s to load before the analyser
+                # starts its own heavy models (buffalo_l + YOLO).  Prevents both
+                # processes from spiking RAM simultaneously on pod restart.
+                if s.get("analyser") and not proc_running(ANALYSER_PID):
+                    time.sleep(10)
             if s.get("analyser") and not proc_running(ANALYSER_PID):
                 log.info("watchdog: restarting analyser")
                 start_proc(ANALYSER_SCRIPT)

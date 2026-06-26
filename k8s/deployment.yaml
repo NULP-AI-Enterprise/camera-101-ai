@@ -90,7 +90,7 @@ spec:
               path: /health
               port: http
             periodSeconds: 20
-            failureThreshold: 3    # restart after 60 s of no response
+            failureThreshold: 5    # restart after 100 s of no response
           readinessProbe:
             httpGet:
               path: /health

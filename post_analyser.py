@@ -46,7 +46,7 @@ log = get_logger("analyser", "analyser.log")
 
 # ── tuneable ──────────────────────────────────────────────────────────────────
 RAW_EVENTS_DIR   = "raw_events"
-ANALYSER_WORKERS = int(os.environ.get("ANALYSER_WORKERS", "3"))
+ANALYSER_WORKERS = int(os.environ.get("ANALYSER_WORKERS", "1"))
 SNAPSHOTS_DIR    = "snapshots"
 PID_FILE         = "analyser.pid"
 POLL_INTERVAL    = 2.0      # seconds between folder scans

@@ -54,6 +54,8 @@ spec:
               containerPort: 8501
               protocol: TCP
           env:
+            - name: TZ
+              value: "Europe/Kyiv"
             - name: AUTH_USERNAME
               valueFrom:
                 secretKeyRef:
